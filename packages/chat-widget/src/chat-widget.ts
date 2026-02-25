@@ -149,7 +149,7 @@ export class ChatWidget {
     // Show typing indicator
     this.showTyping();
 
-    // Send to API
+    // Send to API (streaming — events fire during this await)
     await this.client.sendMessage(text);
   }
 

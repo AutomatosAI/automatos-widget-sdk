@@ -25,11 +25,24 @@ export class MessageList {
   }
 
   updateStreamingMessage(messageId: string, content: string): void {
-    const bubble = this.bubbleMap.get(messageId);
-    if (bubble) {
+    let bubble = this.bubbleMap.get(messageId);
+
+    // Lazily create assistant bubble on first chunk
+    if (!bubble) {
+      const msg: WidgetMessage = {
+        id: messageId,
+        role: 'assistant',
+        content,
+        timestamp: Date.now(),
+        status: 'streaming',
+      };
+      bubble = createMessageBubble(msg);
+      this.bubbleMap.set(messageId, bubble);
+      this.container.appendChild(bubble);
+    } else {
       updateBubbleContent(bubble, content);
-      this.scrollToBottom();
     }
+    this.scrollToBottom();
   }
 
   finalizeMessage(messageId: string): void {
