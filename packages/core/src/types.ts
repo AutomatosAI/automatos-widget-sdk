@@ -10,6 +10,8 @@ export interface AutomatosConfig {
   baseUrl?: string;
   position?: WidgetPosition;
   theme?: WidgetTheme;
+  /** Custom title shown in the chat header */
+  title?: string;
   greeting?: string;
   agentId?: number;
   modelId?: string;

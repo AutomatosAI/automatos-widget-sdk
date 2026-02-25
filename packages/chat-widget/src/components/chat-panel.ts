@@ -3,6 +3,7 @@ import { createHeader } from './header';
 
 export interface ChatPanelOptions {
   onClose: () => void;
+  title?: string;
 }
 
 export class ChatPanel {
@@ -12,7 +13,7 @@ export class ChatPanel {
   private headerEl: HTMLElement;
 
   constructor(opts: ChatPanelOptions) {
-    this.headerEl = createHeader({ onClose: opts.onClose });
+    this.headerEl = createHeader({ onClose: opts.onClose, title: opts.title });
 
     this.messagesContainer = h('div', {
       class: 'aw-messages',

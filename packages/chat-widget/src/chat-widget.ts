@@ -84,7 +84,7 @@ export class ChatWidget {
     this.shadow = shadow;
 
     this.fab = new FAB({ onClick: () => this.toggle() });
-    this.panel = new ChatPanel({ onClose: () => this.close() });
+    this.panel = new ChatPanel({ onClose: () => this.close(), title: this.config.title });
     this.messageList = new MessageList(this.panel.messagesContainer);
 
     this.inputArea = new InputArea({
