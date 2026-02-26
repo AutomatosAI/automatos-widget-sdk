@@ -27,7 +27,7 @@ export function createShadowHost(
   // Apply theme overrides via CSS custom properties
   if (config.themeOverrides) {
     for (const [prop, value] of Object.entries(config.themeOverrides)) {
-      host.style.setProperty(prop, value);
+      host.style.setProperty(prop, value, 'important');
     }
   }
 
