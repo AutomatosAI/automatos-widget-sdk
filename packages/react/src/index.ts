@@ -9,3 +9,4 @@ export type {
 
 export { AutomatosClient, EventBus } from '@automatos/core';
 export { ChatWidget } from '@automatos/chat-widget';
+export { BlogWidget } from '@automatos/blog-widget';

@@ -1,0 +1,205 @@
+{
+  "project": "Automatos Widget SDK",
+  "branchName": "ralph/blog-widget",
+  "description": "Blog Widget — Embeddable blog display widget for the Automatos Widget SDK. Renders agent-authored posts from the Automatos API in a Shadow DOM isolated component with theming, layout variants, and markdown rendering.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Scaffold blog-widget package",
+      "description": "As a developer, I need the blog-widget package scaffolded in the monorepo with build config matching chat-widget.",
+      "acceptanceCriteria": [
+        "Create packages/blog-widget/ directory",
+        "Create packages/blog-widget/package.json with name @automatos/blog-widget, main/module/types exports pointing to dist/, peerDependency on @automatos/core, build script using tsup",
+        "Create packages/blog-widget/tsconfig.json extending ../../tsconfig.base.json with outDir dist/ and rootDir src/",
+        "Create packages/blog-widget/tsup.config.ts matching chat-widget pattern: entry src/index.ts, format esm + cjs, dts true, clean true, external @automatos/core",
+        "Create packages/blog-widget/src/index.ts that exports BlogWidget class (empty placeholder for now)",
+        "Add blog-widget to pnpm-workspace.yaml if not auto-discovered",
+        "pnpm build succeeds for the new package",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add blog types to @automatos/core",
+      "description": "As a developer, I need shared TypeScript types for blog posts and blog widget configuration.",
+      "acceptanceCriteria": [
+        "In packages/core/src/types.ts, extend WidgetType to 'chat' | 'blog'",
+        "Add BlogPost interface: id (string), title (string), slug (string), excerpt (string), cover_image_url (string | null), tags (string[]), category (string | null), author_name (string), published_at (string), reading_time_minutes (number), content (string, optional — only in detail view)",
+        "Add BlogPostListResponse interface: posts (BlogPost[]), total (number), page (number), per_page (number), total_pages (number)",
+        "Add BlogWidgetConfig interface extending base config: layout ('grid' | 'list' | 'featured' | 'minimal', default 'grid'), postsPerPage (number, default 6), category (string, optional filter), tag (string, optional filter), containerSelector (string, optional CSS selector to mount into)",
+        "Update AutomatosConfig to accept BlogWidgetConfig fields when widget is 'blog'",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add blog API methods to AutomatosClient",
+      "description": "As a developer, I need API methods on the core client to fetch blog posts from the public endpoints.",
+      "acceptanceCriteria": [
+        "In packages/core/src/client.ts, add method listPosts(options?: { page?: number, perPage?: number, category?: string, tag?: string }): Promise<BlogPostListResponse> that calls GET /api/widgets/blog/posts with workspace_id from auth context and query params",
+        "Add method getPost(slug: string): Promise<BlogPost> that calls GET /api/widgets/blog/posts/{slug} with workspace_id",
+        "Add method getCategories(): Promise<Array<{ category: string, count: number }>> that calls GET /api/widgets/blog/categories",
+        "Add method getTags(): Promise<Array<{ tag: string, count: number }>> that calls GET /api/widgets/blog/tags",
+        "All methods use the existing auth header mechanism (getAuthHeader)",
+        "All methods throw NetworkError on non-2xx responses",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create blog widget Shadow DOM host and styles",
+      "description": "As a developer, I need the Shadow DOM container and base CSS for the blog widget.",
+      "acceptanceCriteria": [
+        "Create packages/blog-widget/src/dom/shadow-host.ts — reuse pattern from chat-widget but mount into containerSelector if provided instead of document.body. If no containerSelector, create a full-width container div appended to body",
+        "Create packages/blog-widget/src/styles/base.ts — CSS custom properties matching chat-widget theme vars (--aw-primary, --aw-bg, --aw-text, etc.), base typography for blog content (comfortable line-height 1.7, max-width 720px for content column), responsive breakpoints",
+        "Create packages/blog-widget/src/styles/components.ts — styles for post cards (grid and list variants), post detail view, loading skeletons, empty state, pagination, tag badges, category pills",
+        "Create packages/blog-widget/src/styles/animations.ts — fade-in for cards, skeleton pulse animation, smooth view transitions",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Create post card component",
+      "description": "As a reader, I need a post card that displays title, excerpt, cover image, author, date, and tags.",
+      "acceptanceCriteria": [
+        "Create packages/blog-widget/src/components/post-card.ts with PostCard class",
+        "Constructor takes BlogPost data and layout variant ('grid' | 'list' | 'featured' | 'minimal')",
+        "Grid variant: vertical card with cover image (aspect-ratio 16/9, object-fit cover, fallback gradient if no image), title (h3, 2-line clamp), excerpt (3-line clamp), meta row (author name, formatted date, reading time badge)",
+        "List variant: horizontal card with small thumbnail left (120px wide), content right with title, excerpt (2-line clamp), meta row",
+        "Featured variant: large hero card, full-width cover image (aspect-ratio 21/9), title overlay at bottom with gradient scrim, excerpt below image, large meta row",
+        "Minimal variant: just title as link, date, and reading time on one line",
+        "Tags rendered as small pill badges below excerpt",
+        "Card has cursor pointer and subtle hover effect (shadow lift or border color change)",
+        "Exposes onClick callback for navigation to post detail",
+        "Uses createElement helper pattern from chat-widget dom/create-element.ts (copy to blog-widget or extract to shared)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Create post listing view",
+      "description": "As a reader, I need a listing view that displays posts in the configured layout with pagination.",
+      "acceptanceCriteria": [
+        "Create packages/blog-widget/src/components/post-listing.ts with PostListing class",
+        "Constructor takes layout variant and postsPerPage config",
+        "Renders posts using PostCard components in a CSS grid: grid layout uses 2 columns on desktop, 1 on mobile. List layout is single column. Featured layout has first post as featured card then remaining in grid. Minimal is a simple vertical list",
+        "Pagination bar at bottom: Previous / Page X of Y / Next buttons. Disabled states when on first/last page",
+        "Loading state: skeleton cards matching the layout variant (pulsing placeholder rectangles)",
+        "Empty state: centered message 'No posts yet' with muted text",
+        "Error state: centered error message with retry button",
+        "Exposes onPostClick(slug: string) callback and onPageChange(page: number) callback",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create post detail view with markdown rendering",
+      "description": "As a reader, I need to view full blog post content with proper typography and formatting.",
+      "acceptanceCriteria": [
+        "Create packages/blog-widget/src/components/post-detail.ts with PostDetail class",
+        "Back button at top: arrow left icon + 'Back to posts' text, fires onBack callback",
+        "Post header: cover image (full-width, max-height 400px, object-fit cover), title (h1), meta row (author name, published date formatted, reading time, category badge), tags as pill badges",
+        "Content area: rendered HTML from API response (content field is already HTML from backend). Wrapped in a styled article element with max-width 720px centered. Styles for: h1-h6 (sized hierarchy), p (margin-bottom), a (primary color, underline, target=_blank), code/pre (background, monospace, overflow-x scroll), blockquote (left border, italic), img (max-width 100%, rounded), ul/ol (proper indentation), table (bordered, striped rows), hr (subtle divider)",
+        "Content is inserted via innerHTML — the backend already sanitizes with bleach. Add a comment noting this dependency",
+        "Loading state: skeleton with header placeholder and content line placeholders",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Assemble BlogWidget main class",
+      "description": "As a developer, I need the main BlogWidget class that orchestrates the listing and detail views with the API client.",
+      "acceptanceCriteria": [
+        "Create packages/blog-widget/src/blog-widget.ts with BlogWidget class",
+        "Constructor takes AutomatosConfig (with blog-specific fields), creates AutomatosClient, creates Shadow DOM host",
+        "State management: currentView ('listing' | 'detail'), currentPage (number), currentSlug (string | null), posts cache (Map of page -> BlogPostListResponse)",
+        "On mount: calls client.listPosts() for page 1, renders PostListing with results",
+        "PostListing onPostClick: switches to detail view, calls client.getPost(slug), renders PostDetail",
+        "PostDetail onBack: switches back to listing view (uses cached data if available)",
+        "PostListing onPageChange: fetches new page (or uses cache), re-renders listing",
+        "Pre-authenticates for server keys (same pattern as ChatWidget)",
+        "destroy() method: cleans up client, removes DOM",
+        "Update packages/blog-widget/src/index.ts to export BlogWidget class",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Update loader to support blog widget type",
+      "description": "As a website owner, I need to initialize the blog widget via the same AutomatosWidget.init() call.",
+      "acceptanceCriteria": [
+        "In packages/loader/src/index.ts, import BlogWidget from @automatos/blog-widget",
+        "Update init() function: if config.widget === 'blog', create BlogWidget instance instead of ChatWidget. Store in a separate variable (blogInstance) or make instance generic",
+        "Update destroy() to clean up whichever widget type is active",
+        "Remove open/close/toggle exports from being called when widget is blog (blog widget is inline, not toggleable). These should no-op or warn if widget type is blog",
+        "Update packages/loader/package.json to add @automatos/blog-widget as dependency",
+        "Update packages/loader/tsup.config.ts if needed to include blog-widget in the bundle",
+        "pnpm build succeeds for loader package",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add React wrapper for blog widget",
+      "description": "As a React developer, I need an AutomatosBlog component to embed the blog widget.",
+      "acceptanceCriteria": [
+        "In packages/react/src/react.tsx, add AutomatosBlog component",
+        "Props: apiKey (string required), baseUrl (string optional), layout ('grid' | 'list' | 'featured' | 'minimal' optional), postsPerPage (number optional), category (string optional), tag (string optional), theme ('light' | 'dark' optional), themeOverrides (Partial<ThemeConfig> optional), className (string optional)",
+        "Component renders a div ref, on mount creates BlogWidget targeting that div via containerSelector, on unmount calls destroy()",
+        "Re-initializes widget if apiKey or layout props change (useEffect dependency)",
+        "Update packages/react/src/index.ts to export AutomatosBlog",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Update playground with blog widget demo",
+      "description": "As a developer, I need a playground page to test the blog widget during development.",
+      "acceptanceCriteria": [
+        "In apps/playground/index.html, add a second section or tab for Blog Widget demo below the chat widget demo",
+        "Add a div with id='blog-container' for the blog widget to mount into",
+        "In apps/playground/src/script-tag-demo.ts, add a second init call (or toggle) that initializes the blog widget: AutomatosWidget.init({ apiKey: 'ak_pub_test', widget: 'blog', layout: 'grid', postsPerPage: 6, containerSelector: '#blog-container' })",
+        "Add layout selector buttons (grid/list/featured/minimal) that destroy and re-init the widget with the selected layout",
+        "pnpm dev starts the playground without errors",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

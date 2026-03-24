@@ -49,6 +49,19 @@ importers:
         specifier: ^6.1.0
         version: 6.4.1
 
+  packages/blog-widget:
+    dependencies:
+      '@automatos/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(postcss@8.5.6)(typescript@5.9.3)
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9
+
   packages/chat-widget:
     dependencies:
       '@automatos/core':
@@ -73,6 +86,9 @@ importers:
 
   packages/loader:
     dependencies:
+      '@automatos/blog-widget':
+        specifier: workspace:*
+        version: link:../blog-widget
       '@automatos/chat-widget':
         specifier: workspace:*
         version: link:../chat-widget
@@ -86,6 +102,9 @@ importers:
 
   packages/react:
     dependencies:
+      '@automatos/blog-widget':
+        specifier: workspace:*
+        version: link:../blog-widget
       '@automatos/chat-widget':
         specifier: workspace:*
         version: link:../chat-widget
