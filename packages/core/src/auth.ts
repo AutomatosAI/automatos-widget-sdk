@@ -11,6 +11,24 @@ interface CachedSession {
 }
 
 /**
+ * Check whether the Shopify customer privacy API allows storage access.
+ * Returns true if we're not on a Shopify store or if consent is granted.
+ */
+function hasStorageConsent(): boolean {
+  try {
+    const privacy = (window as unknown as Record<string, unknown>).Shopify as
+      | { customerPrivacy?: { analyticsProcessingAllowed?: () => boolean } }
+      | undefined;
+    if (privacy?.customerPrivacy?.analyticsProcessingAllowed) {
+      return privacy.customerPrivacy.analyticsProcessingAllowed();
+    }
+  } catch {
+    // Not a Shopify store or API unavailable — allow storage
+  }
+  return true;
+}
+
+/**
  * Manages widget authentication.
  * - Public keys (ak_pub_*) are sent directly in Authorization header.
  * - Server keys exchange for short-lived JWT session tokens.
@@ -78,6 +96,7 @@ export class AuthManager {
       this.refreshTimer = null;
     }
     this.session = null;
+    if (!hasStorageConsent()) return;
     try {
       sessionStorage.removeItem(SESSION_KEY);
     } catch {
@@ -101,6 +120,7 @@ export class AuthManager {
       permissions: data.permissions,
     };
 
+    if (!hasStorageConsent()) return;
     try {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(this.session));
     } catch {
@@ -109,6 +129,7 @@ export class AuthManager {
   }
 
   private loadCachedSession(): void {
+    if (!hasStorageConsent()) return;
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
       if (raw) {

@@ -15,7 +15,8 @@ export interface AutomatosConfig {
   /** Custom title shown in the chat header */
   title?: string;
   greeting?: string;
-  agentId?: number;
+  /** Agent UUID (public_id). Also accepts legacy integer id for backward compat. */
+  agentId?: string;
   modelId?: string;
   /** Custom CSS properties to override theme defaults */
   themeOverrides?: Partial<ThemeConfig>;
@@ -50,7 +51,7 @@ export interface ThemeConfig {
 export interface ChatRequest {
   message: string;
   conversation_id?: string;
-  agent_id?: number;
+  agent_id?: string;
   model_id?: string;
 }
 

@@ -29,17 +29,90 @@ function buildSkeleton(): HTMLElement {
   ]);
 }
 
+/** Tags allowed in blog post content. Anything not listed is stripped. */
+const ALLOWED_TAGS = new Set([
+  'p', 'br', 'hr',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ins', 'mark', 'small', 'sub', 'sup',
+  'a', 'img',
+  'ul', 'ol', 'li',
+  'blockquote', 'pre', 'code',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+  'figure', 'figcaption', 'picture', 'source',
+  'div', 'span', 'section', 'article',
+]);
+
+/** Attributes allowed per tag. Unlisted tags get no attributes. */
+const ALLOWED_ATTRS: Record<string, Set<string>> = {
+  a: new Set(['href', 'title']),
+  img: new Set(['src', 'alt', 'width', 'height', 'loading']),
+  source: new Set(['srcset', 'media', 'type']),
+  td: new Set(['colspan', 'rowspan']),
+  th: new Set(['colspan', 'rowspan', 'scope']),
+  code: new Set(['class']),
+  pre: new Set(['class']),
+  span: new Set(['class']),
+  div: new Set(['class']),
+};
+
+/** Protocols allowed in href/src attributes. */
+const SAFE_URL_RE = /^(?:https?:|mailto:|\/|#)/i;
+
 /**
- * Safely renders pre-sanitized HTML content into a container element.
- * The backend sanitizes all blog content with bleach before serving.
- * This runs inside a Shadow DOM for additional isolation.
+ * Client-side HTML sanitizer for blog content.
+ * Defence-in-depth: backend sanitizes with bleach, this is the client-side gate.
+ * Strips disallowed tags/attributes and unsafe URLs before inserting into Shadow DOM.
+ */
+function sanitizeHTML(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  // Safe: <template> elements parse HTML without executing scripts or loading resources
+  template.innerHTML = html; // eslint-disable-line no-unsanitized/property
+  sanitizeNode(template.content);
+  return template.content;
+}
+
+function sanitizeNode(node: Node): void {
+  const toRemove: Node[] = [];
+
+  for (const child of node.childNodes) {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      const el = child as Element;
+      const tag = el.tagName.toLowerCase();
+
+      if (!ALLOWED_TAGS.has(tag)) {
+        toRemove.push(el);
+        continue;
+      }
+
+      const allowed = ALLOWED_ATTRS[tag];
+      for (const attr of [...el.attributes]) {
+        if (!allowed?.has(attr.name)) {
+          el.removeAttribute(attr.name);
+          continue;
+        }
+        if ((attr.name === 'href' || attr.name === 'src') && !SAFE_URL_RE.test(attr.value)) {
+          el.removeAttribute(attr.name);
+        }
+      }
+
+      sanitizeNode(el);
+    }
+  }
+
+  for (const dead of toRemove) {
+    node.removeChild(dead);
+  }
+}
+
+/**
+ * Safely renders sanitized HTML content into a container element.
+ * The backend sanitizes with bleach; this client-side pass is defence-in-depth.
+ * Runs inside a Shadow DOM for additional isolation.
  */
 function renderSanitizedContent(container: HTMLElement, htmlContent: string): void {
-  const template = document.createElement('template');
-  template.innerHTML = htmlContent;
-  container.appendChild(template.content);
+  const fragment = sanitizeHTML(htmlContent);
+  container.appendChild(fragment);
 
-  // Open links in new tab
   for (const a of container.querySelectorAll('a')) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');

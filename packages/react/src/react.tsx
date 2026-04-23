@@ -9,7 +9,7 @@ export interface AutomatosChatProps {
   position?: 'bottom-right' | 'bottom-left';
   theme?: 'light' | 'dark';
   greeting?: string;
-  agentId?: number;
+  agentId?: string;
   modelId?: string;
 }
 
