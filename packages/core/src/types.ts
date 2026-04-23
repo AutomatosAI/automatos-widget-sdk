@@ -1,8 +1,10 @@
 // ── Widget Configuration ──
 
-export type WidgetType = 'chat';
+export type WidgetType = 'chat' | 'blog';
 export type WidgetPosition = 'bottom-right' | 'bottom-left';
 export type WidgetTheme = 'light' | 'dark';
+
+export type BlogLayout = 'grid' | 'list' | 'featured' | 'minimal';
 
 export interface AutomatosConfig {
   apiKey: string;
@@ -13,10 +15,22 @@ export interface AutomatosConfig {
   /** Custom title shown in the chat header */
   title?: string;
   greeting?: string;
-  agentId?: number;
+  /** Agent UUID (public_id). Also accepts legacy integer id for backward compat. */
+  agentId?: string;
   modelId?: string;
   /** Custom CSS properties to override theme defaults */
   themeOverrides?: Partial<ThemeConfig>;
+  // Blog-specific config
+  /** Blog layout variant */
+  layout?: BlogLayout;
+  /** Number of posts per page (default 6) */
+  postsPerPage?: number;
+  /** Filter by category */
+  category?: string;
+  /** Filter by tag */
+  tag?: string;
+  /** CSS selector for blog widget mount target */
+  containerSelector?: string;
 }
 
 export interface ThemeConfig {
@@ -37,7 +51,7 @@ export interface ThemeConfig {
 export interface ChatRequest {
   message: string;
   conversation_id?: string;
-  agent_id?: number;
+  agent_id?: string;
   model_id?: string;
 }
 
@@ -95,6 +109,31 @@ export interface SSEErrorEvent {
     message: string;
     code?: string;
   };
+}
+
+// ── Blog API Types ──
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  cover_image_url: string | null;
+  tags: string[];
+  category: string | null;
+  author_name: string;
+  published_at: string;
+  reading_time_minutes: number;
+  /** Full post content (HTML). Only present in detail view. */
+  content?: string;
+}
+
+export interface BlogPostListResponse {
+  posts: BlogPost[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
 }
 
 // ── Session Types ──

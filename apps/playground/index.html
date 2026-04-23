@@ -25,7 +25,8 @@
     <p>Test the embeddable chat widget in script-tag and React modes.</p>
 
     <div class="tabs">
-      <button class="tab active" onclick="showTab('script')">Script Tag</button>
+      <button class="tab active" onclick="showTab('script')">Chat (Script)</button>
+      <button class="tab" onclick="showTab('blog')">Blog Widget</button>
       <button class="tab" onclick="showTab('react')">React</button>
     </div>
 
@@ -45,6 +46,20 @@
       <p>The chat FAB should appear in the bottom-right corner.</p>
     </div>
 
+    <div id="blog-demo" style="display:none;">
+      <div class="card">
+        <h2>Blog Widget</h2>
+        <p>Select a layout variant:</p>
+        <div class="tabs" style="margin-bottom: 16px;">
+          <button class="tab active" onclick="switchBlogLayout('grid')">Grid</button>
+          <button class="tab" onclick="switchBlogLayout('list')">List</button>
+          <button class="tab" onclick="switchBlogLayout('featured')">Featured</button>
+          <button class="tab" onclick="switchBlogLayout('minimal')">Minimal</button>
+        </div>
+      </div>
+      <div id="blog-container" style="margin-top: 16px;"></div>
+    </div>
+
     <div id="react-demo" style="display:none;">
       <div id="react-root"></div>
     </div>
@@ -55,12 +70,28 @@
 
   <script>
     function showTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      // Only toggle active on top-level tabs
+      const topTabs = document.querySelector('.container > .tabs');
+      topTabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       event.target.classList.add('active');
       document.getElementById('script-demo').style.display = tab === 'script' ? 'block' : 'none';
+      document.getElementById('blog-demo').style.display = tab === 'blog' ? 'block' : 'none';
       document.getElementById('react-demo').style.display = tab === 'react' ? 'block' : 'none';
+      if (tab === 'blog') {
+        import('/src/blog-demo.ts');
+      }
       if (tab === 'react') {
         import('/src/react-demo.tsx');
+      }
+    }
+
+    function switchBlogLayout(layout) {
+      // Toggle active on blog layout tabs
+      const blogTabs = document.querySelector('#blog-demo .tabs');
+      blogTabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      if (window.__switchBlogLayout) {
+        window.__switchBlogLayout(layout);
       }
     }
   </script>

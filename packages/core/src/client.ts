@@ -1,5 +1,7 @@
 import type {
   AutomatosConfig,
+  BlogPost,
+  BlogPostListResponse,
   ChatMessage,
   ChatRequest,
   SSEEvent,
@@ -134,6 +136,74 @@ export class AutomatosClient {
     this.conversation.conversationId = conversationId;
     this.conversation.loadHistory(messages);
     return messages;
+  }
+
+  // ── Blog API ──
+
+  async listPosts(options?: {
+    page?: number;
+    perPage?: number;
+    category?: string;
+    tag?: string;
+  }): Promise<BlogPostListResponse> {
+    const params = new URLSearchParams();
+    if (options?.page) params.set('page', String(options.page));
+    if (options?.perPage) params.set('per_page', String(options.perPage));
+    if (options?.category) params.set('category', options.category);
+    if (options?.tag) params.set('tag', options.tag);
+
+    const authHeader = await this.auth.getAuthHeader();
+    const qs = params.toString();
+    const res = await fetch(
+      `${this.baseUrl}/api/widgets/blog/posts${qs ? `?${qs}` : ''}`,
+      { headers: { Authorization: authHeader } },
+    );
+
+    if (!res.ok) {
+      throw new NetworkError('Failed to fetch posts', res.status);
+    }
+
+    return res.json();
+  }
+
+  async getPost(slug: string): Promise<BlogPost> {
+    const authHeader = await this.auth.getAuthHeader();
+    const res = await fetch(
+      `${this.baseUrl}/api/widgets/blog/posts/${encodeURIComponent(slug)}`,
+      { headers: { Authorization: authHeader } },
+    );
+
+    if (!res.ok) {
+      throw new NetworkError('Failed to fetch post', res.status);
+    }
+
+    return res.json();
+  }
+
+  async getCategories(): Promise<Array<{ category: string; count: number }>> {
+    const authHeader = await this.auth.getAuthHeader();
+    const res = await fetch(`${this.baseUrl}/api/widgets/blog/categories`, {
+      headers: { Authorization: authHeader },
+    });
+
+    if (!res.ok) {
+      throw new NetworkError('Failed to fetch categories', res.status);
+    }
+
+    return res.json();
+  }
+
+  async getTags(): Promise<Array<{ tag: string; count: number }>> {
+    const authHeader = await this.auth.getAuthHeader();
+    const res = await fetch(`${this.baseUrl}/api/widgets/blog/tags`, {
+      headers: { Authorization: authHeader },
+    });
+
+    if (!res.ok) {
+      throw new NetworkError('Failed to fetch tags', res.status);
+    }
+
+    return res.json();
   }
 
   /**

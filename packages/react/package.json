@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "@automatos/core": "workspace:*",
-    "@automatos/chat-widget": "workspace:*"
+    "@automatos/chat-widget": "workspace:*",
+    "@automatos/blog-widget": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
