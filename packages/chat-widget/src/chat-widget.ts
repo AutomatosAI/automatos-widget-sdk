@@ -22,7 +22,6 @@ export class ChatWidget {
   private messageList!: MessageList;
   private inputArea!: InputArea;
   private typingEl: HTMLElement | null = null;
-  private hasGreeted = false;
   private isStreaming = false;
   private unsubs: (() => void)[] = [];
 
@@ -46,9 +45,6 @@ export class ChatWidget {
     this.panel.show();
     this.fab.setOpen(true);
     this.client.events.emit('widget:open', undefined as never);
-    if (!this.hasGreeted && this.config.greeting) {
-      this.showGreeting();
-    }
     this.inputArea.focus();
     this.trapFocus();
   }
@@ -151,13 +147,6 @@ export class ChatWidget {
 
     // Send to API (streaming — events fire during this await)
     await this.client.sendMessage(text);
-  }
-
-  private showGreeting(): void {
-    if (this.hasGreeted) return;
-    this.hasGreeted = true;
-    const greeting = this.client.conversation.addGreeting(this.config.greeting!);
-    this.messageList.addMessage(greeting);
   }
 
   private showTyping(): void {
