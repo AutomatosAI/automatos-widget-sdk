@@ -181,17 +181,17 @@ function tokenizeInline(text: string): Node[] {
       }
     }
 
-    // Append text before the match
-    if (earliestIndex > 0) {
-      appendTextNodes(nodes, remaining.slice(0, earliestIndex));
-    }
-
     if (!matchType) {
       // No more matches — append rest as text
-      if (remaining.length > 0 && earliestIndex === remaining.length) {
+      if (remaining.length > 0) {
         appendTextNodes(nodes, remaining);
       }
       break;
+    }
+
+    // Append text before the match
+    if (earliestIndex > 0) {
+      appendTextNodes(nodes, remaining.slice(0, earliestIndex));
     }
 
     // Create the matched element
