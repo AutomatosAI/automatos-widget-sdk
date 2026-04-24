@@ -21,6 +21,10 @@ export const baseCSS = /* css */ `
 .aw-root {
   position: fixed;
   z-index: 2147483647;
+  /* Host itself uses pointer-events: none so the page stays interactive
+     around the widget. Restore pointer events on the root container so
+     clicks register on the FAB and panel. */
+  pointer-events: auto;
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
