@@ -34,16 +34,30 @@ export interface AutomatosConfig {
 }
 
 export interface ThemeConfig {
+  /** Primary accent colour — FAB, send button, user bubble, blog post titles on hover */
   '--aw-primary': string;
+  /** Hover state for primary buttons */
   '--aw-primary-hover': string;
+  /** Panel background — chat panel, blog widget root */
   '--aw-bg': string;
+  /** Secondary surface — assistant bubble, input field, blog post card bg */
   '--aw-bg-secondary': string;
+  /** Primary text colour */
   '--aw-text': string;
+  /** Muted text — timestamps, "Powered by", post metadata, excerpts */
   '--aw-text-secondary': string;
+  /** Dividers, input borders, post card borders */
   '--aw-border': string;
+  /** Box shadow on the chat panel and blog post cards */
   '--aw-shadow': string;
+  /** Corner radius applied to bubbles, panel, FAB, post cards */
   '--aw-radius': string;
+  /** Font family — must be loaded by the host page */
   '--aw-font': string;
+  /** Blog only — background of inline code and code blocks in post content */
+  '--aw-code-bg': string;
+  /** Blog only — foreground colour of code text */
+  '--aw-code-text': string;
 }
 
 // ── Chat API Types ──
