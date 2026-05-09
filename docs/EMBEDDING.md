@@ -1,8 +1,40 @@
 # Embedding Automatos Widgets
 
-One snippet pattern works on **Shopify themes, static HTML sites, React /
-Next.js apps, WordPress, and any framework that can render `<script>`
-tags**. Customers create a single widget key and embed everywhere.
+Add an AI chatbot and an AI-powered blog to any website with **one script
+tag and one config call**. Same pattern works on Shopify themes, static
+HTML, React / Next.js / Vite, WordPress, Webflow — anything that renders
+HTML.
+
+> 💡 **Already on Automatos?** Skip to "[Get a public key](#1-get-a-public-key)".
+> Brand new? Sign up at [automatos.app](https://automatos.app), then come back.
+
+---
+
+## 30-second Quickstart
+
+Copy this into the `<head>` of any HTML page. Replace the API key with
+your own.
+
+```html
+<script src="https://widgets.automatos.app/v0/widget.global.js"
+        defer crossorigin="anonymous"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    AutomatosWidget.init({
+      apiKey: 'ak_pub_xxxxxxxxxxxxxxxxxxxx',
+      widget: 'chat',
+      position: 'bottom-right',
+      greeting: 'Hi! Ask us anything.'
+    });
+  });
+</script>
+```
+
+Save, refresh. A chat bubble appears in the bottom-right corner,
+backed by an AI agent in your Automatos workspace. That's it.
+
+For a blog widget, add a container and a second `init` call (see
+[examples](#2-embed-the-widgets) below).
 
 ---
 
@@ -127,26 +159,225 @@ write code — they paste the API key into the block setting. See
 </script>
 ```
 
-### React / Next.js / Vite
+### Next.js (App Router — Next 13+)
 
-Drop the script tag in `index.html` (or Next's `_document.tsx`) once,
-then mount each widget from a small component. See
-`automatos-ai-landing/src/components/widgets/AutomatosChat.tsx` and
-`AutomatosBlog.tsx` for the reference implementation we use on
-`automatos.app`.
+Three files. Total time: ~5 minutes.
+
+#### 1. Add the SDK script in `app/layout.tsx`
 
 ```tsx
-// AutomatosChat.tsx — mount once near the app root
-useEffect(() => {
-  if (!window.AutomatosWidget) return;
-  const inst = window.AutomatosWidget.init({
-    apiKey: import.meta.env.VITE_AUTOMATOS_PUBLIC_KEY,
-    widget: 'chat',
-    position: 'bottom-right',
-  });
-  return () => inst?.destroy();
-}, []);
+// app/layout.tsx
+import Script from 'next/script';
+import { AutomatosChat } from '@/components/AutomatosChat';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+
+        {/* Load the SDK once for the whole site */}
+        <Script
+          src="https://widgets.automatos.app/v0/widget.global.js"
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
+        />
+
+        {/* Chat widget — appears on every route */}
+        <AutomatosChat />
+      </body>
+    </html>
+  );
+}
 ```
+
+#### 2. Create the Chat component (Client Component — needs `useEffect`)
+
+```tsx
+// components/AutomatosChat.tsx
+'use client';
+
+import { useEffect, useRef } from 'react';
+
+declare global {
+  interface Window {
+    AutomatosWidget?: {
+      init: (config: AutomatosInitConfig) => { destroy: () => void };
+    };
+  }
+}
+
+interface AutomatosInitConfig {
+  apiKey: string;
+  widget: 'chat' | 'blog';
+  position?: 'bottom-right' | 'bottom-left';
+  theme?: 'light' | 'dark';
+  greeting?: string;
+  agentId?: string;
+  containerSelector?: string;
+  blogConfig?: { layout?: string; postsPerPage?: number; category?: string };
+  themeOverrides?: Record<string, string>;
+}
+
+const API_KEY = process.env.NEXT_PUBLIC_AUTOMATOS_PUBLIC_KEY;
+
+export function AutomatosChat() {
+  const instance = useRef<{ destroy: () => void } | null>(null);
+
+  useEffect(() => {
+    if (!API_KEY) return;
+    let cancelled = false;
+
+    const tryInit = () => {
+      if (cancelled) return;
+      if (!window.AutomatosWidget) {
+        window.setTimeout(tryInit, 100);
+        return;
+      }
+      instance.current = window.AutomatosWidget.init({
+        apiKey: API_KEY,
+        widget: 'chat',
+        position: 'bottom-right',
+        theme: 'dark',
+        greeting: 'Hi! How can we help?',
+      });
+    };
+
+    tryInit();
+
+    return () => {
+      cancelled = true;
+      instance.current?.destroy();
+    };
+  }, []);
+
+  return null;
+}
+```
+
+#### 3. Drop the Blog widget into any page
+
+```tsx
+// app/blog/page.tsx
+'use client';
+
+import { useEffect, useRef } from 'react';
+
+const API_KEY = process.env.NEXT_PUBLIC_AUTOMATOS_PUBLIC_KEY;
+
+export default function BlogPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const idRef = useRef(`automatos-blog-${Date.now()}`);
+
+  useEffect(() => {
+    if (!API_KEY || !containerRef.current) return;
+    containerRef.current.id = idRef.current;
+    let cancelled = false;
+    let inst: { destroy: () => void } | null = null;
+
+    const tryInit = () => {
+      if (cancelled) return;
+      if (!window.AutomatosWidget) {
+        window.setTimeout(tryInit, 100);
+        return;
+      }
+      inst = window.AutomatosWidget.init({
+        apiKey: API_KEY,
+        widget: 'blog',
+        containerSelector: `#${idRef.current}`,
+        blogConfig: { layout: 'grid', postsPerPage: 9 },
+      });
+    };
+    tryInit();
+
+    return () => { cancelled = true; inst?.destroy(); };
+  }, []);
+
+  return (
+    <main className="container mx-auto py-12">
+      <h1 className="text-4xl font-bold mb-8">Blog</h1>
+      <div ref={containerRef} />
+    </main>
+  );
+}
+```
+
+#### Environment variables
+
+Add to `.env.local` (and your Vercel/Railway env):
+
+```bash
+NEXT_PUBLIC_AUTOMATOS_PUBLIC_KEY=ak_pub_xxxxxxxxxxxxxxxxxxxx
+```
+
+The `NEXT_PUBLIC_` prefix is mandatory — Next strips anything else from the client bundle. The key is safe to expose because it's origin-locked server-side.
+
+#### CSP note (if you have `next.config.js` with strict CSP)
+
+Add to your `Content-Security-Policy` header:
+- `script-src` → `https://widgets.automatos.app`
+- `connect-src` → `https://api.automatos.app`
+
+---
+
+### Next.js (Pages Router — older Next or migrating)
+
+Same idea, slightly different file layout. Put the SDK loader in `pages/_document.tsx`:
+
+```tsx
+// pages/_document.tsx
+import { Html, Head, Main, NextScript } from 'next/document';
+
+export default function Document() {
+  return (
+    <Html>
+      <Head />
+      <body>
+        <Main />
+        <NextScript />
+        <script
+          src="https://widgets.automatos.app/v0/widget.global.js"
+          defer
+          crossOrigin="anonymous"
+        />
+      </body>
+    </Html>
+  );
+}
+```
+
+Then mount `<AutomatosChat />` in `pages/_app.tsx` and use the same component code as App Router above.
+
+---
+
+### Vite / React (no SSR)
+
+Drop the script in `index.html`, mount the component once in your root. See
+`automatos-ai-landing/src/components/widgets/{AutomatosChat,AutomatosBlog}.tsx`
+for the reference implementation we use on automatos.app:
+
+```html
+<!-- index.html -->
+<script src="https://widgets.automatos.app/v0/widget.global.js"
+        defer crossorigin="anonymous"></script>
+```
+
+```tsx
+// src/App.tsx — render AutomatosChat once outside Routes
+import { AutomatosChat } from '@/components/widgets/AutomatosChat';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>{/* ... */}</Routes>
+      <AutomatosChat />
+    </BrowserRouter>
+  );
+}
+```
+
+Vite uses `import.meta.env.VITE_AUTOMATOS_PUBLIC_KEY` instead of
+`process.env.NEXT_PUBLIC_*`. Otherwise the component code is identical.
 
 ### Shopify (or any host with strict CSP)
 
