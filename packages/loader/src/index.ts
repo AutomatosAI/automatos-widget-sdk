@@ -1,9 +1,11 @@
 import type { AutomatosConfig } from '@automatos/core';
 import { ChatWidget } from '@automatos/chat-widget';
 import { BlogWidget } from '@automatos/blog-widget';
+import { bootstrapProactive } from './proactive';
 
 let chatInstance: ChatWidget | null = null;
 let blogInstance: BlogWidget | null = null;
+let proactiveHandle: { dispose: () => void } | null = null;
 
 /**
  * Initialize the Automatos widget.
@@ -15,19 +17,35 @@ export function init(config: AutomatosConfig): void {
       return;
     }
     blogInstance = new BlogWidget(config);
-  } else {
-    if (chatInstance) {
-      console.warn('[automatos] Chat widget already initialized. Call destroy() first.');
-      return;
-    }
-    chatInstance = new ChatWidget(config);
+    return;
   }
+
+  if (chatInstance) {
+    console.warn('[automatos] Chat widget already initialized. Call destroy() first.');
+    return;
+  }
+  chatInstance = new ChatWidget(config);
+
+  // PRD-007: spin up proactive engagement asynchronously. Failures are
+  // swallowed inside bootstrapProactive — chat keeps working regardless.
+  bootstrapProactive({
+    config,
+    onOpenChat: () => chatInstance?.open(),
+  })
+    .then((handle) => {
+      proactiveHandle = handle;
+    })
+    .catch((err) => {
+      console.warn('[automatos] proactive bootstrap failed', err);
+    });
 }
 
 /**
  * Destroy the current widget instance.
  */
 export function destroy(): void {
+  proactiveHandle?.dispose();
+  proactiveHandle = null;
   chatInstance?.destroy();
   chatInstance = null;
   blogInstance?.destroy();

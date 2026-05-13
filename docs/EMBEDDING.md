@@ -125,6 +125,11 @@ Already wired in `extensions/automatos-theme/blocks/`. Merchants don't
 write code — they paste the API key into the block setting. See
 `docs/SHOPIFY/SETUP-GUIDE.md` for the install flow.
 
+The theme block (`chat-widget.liquid`) automatically populates the
+`pageContext` object with the Liquid page/product/cart variables, so
+proactive engagement (§3a) works on the storefront with zero merchant
+configuration once it's enabled at the workspace level.
+
 ### Static HTML / WordPress / vanilla site
 
 ```html
@@ -404,6 +409,123 @@ extra headers.
 | `blogConfig.postsPerPage` |  | ✅   | Default 6, max 50.                                     |
 | `blogConfig.category` |     | ✅   | Filter to a single category.                           |
 | `themeOverrides`     | ✅   | ✅   | CSS custom properties (e.g. `'--aw-primary': '#000'`). |
+| `pageContext`        | ✅   |      | Page-context object (see §3a) — powers proactive engagement. |
+| `pageContextElement` | ✅   |      | Selector / element to read `data-*` attrs from when `pageContext` not provided. |
+
+---
+
+## 3a. Proactive engagement (PRD-007)
+
+The chat widget can now reach out first when a shopper has been on a page
+for a configurable amount of time. **Default behaviour is unchanged** —
+the popup only fires when the merchant flips `widget_proactive.enabled` to
+`true` on their workspace (dashboard or `PATCH /api/workspaces/:id/settings`).
+
+### How the widget reads page context
+
+In priority order:
+
+1. **`config.pageContext`** passed to `init()` — best when the host page can
+   build the object directly (e.g. Shopify Liquid):
+   ```js
+   AutomatosWidget.init({
+     apiKey: 'ak_pub_…',
+     widget: 'chat',
+     pageContext: {
+       pageType: 'product',
+       productHandle: 'fan-pro',
+       productTitle: 'Fan Pro 24″',
+       productType: 'Ventilation',
+       shopDomain: 'example.myshopify.com',
+       cartItemCount: 0,
+     }
+   });
+   ```
+2. **`config.pageContextElement`** selector or HTMLElement — reads any
+   `data-*` attribute on the chosen node (see attribute list below).
+3. **The widget mount node itself** — reads the same `data-*` attributes
+   from the `<div data-automatos-widget="chat">` container if neither of the
+   above are supplied. Shopify themes shipped via the Automatos theme
+   extension already populate these.
+
+### Recognised `data-*` attributes
+
+| Attribute | Maps to `PageContext.*` |
+|---|---|
+| `data-page-type` | `pageType` |
+| `data-page-template` | `template` |
+| `data-product-id` | `productId` |
+| `data-product-handle` | `productHandle` |
+| `data-product-type` | `productType` |
+| `data-product-vendor` | `productVendor` |
+| `data-product-title` | `productTitle` |
+| `data-product-price` | `productPrice` |
+| `data-product-available` | `productAvailable` (boolean) |
+| `data-collection-id` | `collectionId` |
+| `data-collection-handle` | `collectionHandle` |
+| `data-collection-title` | `collectionTitle` |
+| `data-shop-domain` | `shopDomain` |
+| `data-shop-currency` | `shopCurrency` |
+| `data-shop-locale` | `shopLocale` |
+| `data-customer-id` | `customerId` |
+| `data-customer-tags` | `customerTags` |
+| `data-cart-item-count` | `cartItemCount` (number) |
+| `data-cart-total-price` | `cartTotalPrice` |
+
+Unknown `data-*` attributes are ignored. Empty values are dropped.
+
+### Trigger types (configured per workspace, not per `init()`)
+
+The widget config returned from `GET /api/widgets/config` decides whether the
+popup fires. The current locked v1 defaults (seeded into new Shopify
+workspaces on provision):
+
+```jsonc
+{
+  "widget_proactive": {
+    "enabled": false,                          // opt-in
+    "page_types": ["product"],
+    "triggers": [{ "type": "time_on_page", "seconds": 20 }],
+    "frequency_cap": { "scope": "session", "max_pops": 1 },
+    "greeting_source": "agent_with_canned_fallback",
+    "canned_fallback": "Need a hand finding the right product?",
+    "agent_timeout_ms": 1500,
+    "popup_style": "corner_bubble",
+    "respect_consent": true,
+    "dismissal_persistence": "session"
+  }
+}
+```
+
+Supported triggers: `time_on_page`, `scroll_depth`, `exit_intent`, `idle`.
+Supported popup styles: `corner_bubble`, `slide_in_card`.
+Supported dismissal scopes: `session`, `day`, `until_navigation`.
+
+The widget calls `GET /api/widgets/config` on init to fetch these. Merchants
+can flip behaviour live (no theme republish needed).
+
+### Activating proactive engagement for a workspace
+
+```bash
+# Enable proactive popups on product pages, fire after 20s
+curl -X PATCH https://api.automatos.app/api/workspaces/<workspace-id>/settings \
+  -H "Authorization: Bearer <admin-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "widget_proactive": {
+      "enabled": true,
+      "page_types": ["product"],
+      "triggers": [{"type": "time_on_page", "seconds": 20}],
+      "frequency_cap": {"scope": "session", "max_pops": 1},
+      "greeting_source": "agent_with_canned_fallback",
+      "canned_fallback": "Need a hand finding the right product?",
+      "agent_timeout_ms": 1500,
+      "popup_style": "corner_bubble",
+      "respect_consent": true,
+      "dismissal_persistence": "session"
+    }
+  }'
+```
 
 ---
 
