@@ -42,6 +42,28 @@ export interface AutomatosConfig {
    * if `pageContext` is not provided directly.
    */
   pageContextElement?: string | HTMLElement;
+  /**
+   * Theme-side override for proactive engagement. When `enabled: true`,
+   * proactive popups fire regardless of the workspace-level config.
+   * Lets a merchant turn the feature on from a theme-customizer checkbox
+   * without needing dashboard / API access.
+   */
+  proactiveOverride?: ProactiveOverride;
+}
+
+/**
+ * Minimal theme-side override for proactive engagement (PRD-007).
+ * Surfaces in the Shopify theme block as 3 settings: a checkbox + delay
+ * slider + canned message. The SDK applies these on top of (or instead
+ * of) the workspace-level WidgetProactiveConfig.
+ */
+export interface ProactiveOverride {
+  /** If true, proactive popups fire (overrides workspace `enabled`). */
+  enabled?: boolean;
+  /** Trigger delay in seconds (defaults to workspace config or 20). */
+  seconds?: number;
+  /** Canned fallback text (defaults to workspace config). */
+  message?: string;
 }
 
 // ── PRD-007: Page context + Proactive engagement ──

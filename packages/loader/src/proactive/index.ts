@@ -9,13 +9,13 @@
 import type {
   AutomatosConfig,
   PageContext,
-  WidgetProactiveConfig,
 } from '@automatos/core';
 
 import { fetchWidgetConfig } from './config-fetcher';
 import { resolvePageContext } from './page-context';
 import { ProactiveEngine } from './proactive-engine';
 import { ProactivePopup } from './proactive-popup';
+import { resolveProactiveConfig } from './resolve-config';
 
 const DEFAULT_BASE_URL = 'https://api.automatos.app';
 const MOUNT_NODE_SELECTOR = '[data-automatos-widget="chat"]';
@@ -43,16 +43,23 @@ export async function bootstrapProactive(
 ): Promise<ProactiveHandle> {
   const { config, onOpenChat } = opts;
 
-  // 1. Fetch the widget config from the orchestrator.
+  // 1. Resolve effective config: theme override OR workspace config can flip on.
+  //    Theme override fields (seconds, message) win over workspace values.
   const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
+  const override = config.proactiveOverride;
+
   const payload = await fetchWidgetConfig({
     baseUrl,
     apiKey: config.apiKey,
     fetchImpl: opts.fetchImpl,
   });
-  const proactive: WidgetProactiveConfig | undefined = payload?.widget_proactive;
 
-  if (!proactive || !proactive.enabled) return NOOP_HANDLE;
+  const proactive = resolveProactiveConfig({
+    workspaceConfig: payload?.widget_proactive,
+    override,
+  });
+
+  if (!proactive.enabled) return NOOP_HANDLE;
 
   // 2. Resolve page context.
   const doc = opts.doc ?? document;

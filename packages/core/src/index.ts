@@ -35,4 +35,5 @@ export type {
   ProactiveDismissalScope,
   WidgetProactiveConfig,
   WidgetConfigPayload,
+  ProactiveOverride,
 } from './types';
