@@ -74,7 +74,16 @@ export class ProactiveEngine {
 
   /** Start watching for triggers. Returns false if proactive should not fire. */
   start(): boolean {
-    if (!this.shouldArm()) return false;
+    const reason = this.shouldArmReason();
+    if (reason !== null) {
+      console.log(`[automatos.proactive] not armed: ${reason}`);
+      return false;
+    }
+    const trig = this.config.triggers[0];
+    const delay = trig?.seconds ?? trig?.percent ?? '?';
+    console.log(
+      `[automatos.proactive] armed — pageType=${this.pageContext.pageType ?? '(none)'}, trigger=${trig?.type}, delay=${delay}`,
+    );
     for (const trigger of this.config.triggers) {
       this.registerTrigger(trigger);
     }
@@ -85,23 +94,32 @@ export class ProactiveEngine {
    * Pre-flight: enabled? page-type allowed? consent? frequency-cap ok?
    */
   shouldArm(): boolean {
-    if (this.disposed) return false;
-    if (!this.config.enabled) return false;
-    if (this.config.respect_consent && !this.consent.isAllowed()) return false;
+    return this.shouldArmReason() === null;
+  }
+
+  /** Returns null if arming is OK, else a human-readable reason it's blocked. */
+  private shouldArmReason(): string | null {
+    if (this.disposed) return 'engine disposed';
+    if (!this.config.enabled) return 'enabled=false (workspace + theme both off)';
+    if (this.config.respect_consent && !this.consent.isAllowed()) {
+      return 'cookie consent declined (respect_consent=true)';
+    }
 
     const pageType = this.pageContext.pageType ?? '';
     if (
       this.config.page_types.length > 0 &&
       !this.config.page_types.includes(pageType)
     ) {
-      return false;
+      return `page_type "${pageType}" not in [${this.config.page_types.join(', ')}]`;
     }
 
     const slot = buildSlotKey(this.pageContext, this.config.frequency_cap.scope);
     const popsSoFar = this.dismissalStore.countPops(slot, this.config.frequency_cap.scope);
-    if (popsSoFar >= this.config.frequency_cap.max_pops) return false;
+    if (popsSoFar >= this.config.frequency_cap.max_pops) {
+      return `frequency cap reached (scope=${this.config.frequency_cap.scope}, slot=${slot}, pops=${popsSoFar}/${this.config.frequency_cap.max_pops}). Run sessionStorage.clear() or open incognito to reset.`;
+    }
 
-    return true;
+    return null;
   }
 
   private registerTrigger(trigger: ProactiveTrigger): void {
@@ -153,6 +171,9 @@ export class ProactiveEngine {
     this.fired = true;
     const slot = buildSlotKey(this.pageContext, this.config.frequency_cap.scope);
     this.dismissalStore.recordPop(slot, this.config.dismissal_persistence);
+    console.log(
+      `[automatos.proactive] firing — trigger=${reason}, slot=${slot}, persistence=${this.config.dismissal_persistence}`,
+    );
     this.onTrigger(reason);
     this.dispose();
   }

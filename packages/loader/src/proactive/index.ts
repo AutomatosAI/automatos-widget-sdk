@@ -79,7 +79,14 @@ export async function bootstrapProactive(
     override,
   });
 
-  if (!proactive.enabled) return NOOP_HANDLE;
+  console.log(
+    `[automatos.proactive] resolved config: enabled=${proactive.enabled}, page_types=[${proactive.page_types.join(',')}], delay=${proactive.triggers[0]?.seconds ?? '?'}s, freq=${proactive.frequency_cap.scope}/${proactive.frequency_cap.max_pops}`,
+  );
+
+  if (!proactive.enabled) {
+    console.log('[automatos.proactive] disabled — set ON in theme or workspace to activate');
+    return NOOP_HANDLE;
+  }
 
   // 2. Resolve page context.
   const doc = opts.doc ?? document;
@@ -114,19 +121,30 @@ export async function bootstrapProactive(
       // before the opener returns, popup.isMounted() guards the update.
       if (proactive.greeting_source !== 'canned') {
         const opener = opts.fetchOpener ?? defaultOpenerFetcher;
+        const started = Date.now();
+        console.log('[automatos.proactive] fetching contextual opener...');
         opener(pageContext, {
           baseUrl,
           apiKey: config.apiKey,
           agentId: config.agentId,
         })
           .then((text) => {
+            const ms = Date.now() - started;
             if (text && popup.isMounted()) {
+              console.log(`[automatos.proactive] opener received (${ms}ms): "${text}"`);
               popup.updateText(text);
+            } else if (!text) {
+              console.warn(
+                `[automatos.proactive] opener returned null (${ms}ms) — canned stays. Check POST /api/widgets/chat in Network tab.`,
+              );
+            } else {
+              console.log(
+                `[automatos.proactive] opener returned (${ms}ms) but popup already dismissed.`,
+              );
             }
           })
-          .catch(() => {
-            // Swallow — canned text stays. fetch-opener already returns null
-            // on errors so this is mostly defensive.
+          .catch((err) => {
+            console.warn('[automatos.proactive] opener fetch threw:', err);
           });
       }
 
