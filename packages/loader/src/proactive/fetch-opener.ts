@@ -18,7 +18,11 @@ export interface FetchOpenerOptions {
   apiKey: string;
   agentId?: string;
   pageContext: PageContext;
-  /** Hard timeout for the whole request; default 8s. */
+  /**
+   * Hard timeout for the whole request, including tool calls + LLM generation.
+   * Default 30s — real-world agent responses with a knowledge-graph lookup +
+   * LLM completion often take 5-15s.
+   */
   timeoutMs?: number;
   /** Test injection */
   fetchImpl?: typeof fetch;
@@ -39,7 +43,7 @@ export async function fetchProactiveOpener(
   };
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 8000);
+  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 30000);
 
   try {
     const res = await fetcher(url, {
