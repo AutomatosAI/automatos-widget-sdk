@@ -6,20 +6,41 @@ Manual S3 + CloudFront deploy of `packages/loader/dist/` to the CDN.
 Same procedure GitHub Actions would run (when wired) — kept as a script
 so manual + CI deploys produce identical artefacts.
 
-### Quick usage
+### Quick usage (zero-config in the monorepo)
 
 ```bash
-# One-time setup (per machine)
-aws configure                                      # add deploy IAM creds
-export AWS_SDK_DEPLOY_DISTRIBUTION_ID=ABCDEF...    # CloudFront distribution
-
 # Each release
 pnpm install
 pnpm build
-pnpm deploy:cdn v0.2.0          # ship it
+pnpm deploy:cdn v0.2.1          # ship it
 # or
-pnpm deploy:cdn v0.2.0 --dry-run   # preview commands without uploading
+pnpm deploy:cdn v0.2.1 --dry-run   # preview commands without uploading
 ```
+
+That's it. No `aws configure`, no `aws sso login`, no env var setup needed.
+
+### How auth works (auto-detection)
+
+The script checks for AWS credentials in this priority order:
+
+1. **`AWS_ACCESS_KEY_ID` already in your shell** — used as-is.
+2. **`../automatos-ai/orchestrator/.env`** — if this file exists and your
+   shell doesn't have creds set, the script sources the env file and
+   uses the access keys from there.
+3. **AWS CLI profile / SSO** — fallback if neither of the above work.
+
+In the Automatos monorepo, option 2 fires automatically — no setup
+required. The orchestrator's IAM creds have the necessary S3 + CloudFront
+perms for the widget bucket.
+
+### How distribution + bucket are resolved
+
+- **Bucket**: defaults to `automatos-widget-sdk`. Override with
+  `AWS_SDK_DEPLOY_BUCKET` env var.
+- **Distribution ID**: auto-detected via
+  `aws cloudfront list-distributions` filtering for the configured
+  domain (`widgets.automatos.app`). Override with
+  `AWS_SDK_DEPLOY_DISTRIBUTION_ID` if you need a specific one.
 
 ### What it does (in order)
 
@@ -36,14 +57,14 @@ pnpm deploy:cdn v0.2.0 --dry-run   # preview commands without uploading
 9. Smoke-tests `https://<domain>/<major-alias>/widget.global.js` — retries
    for up to 2 minutes while invalidation propagates.
 
-### Required env vars
+### Optional env vars (defaults work for production)
 
 | Variable | Default | Notes |
 |---|---|---|
-| `AWS_SDK_DEPLOY_DISTRIBUTION_ID` | _(none — required)_ | Find via `aws cloudfront list-distributions --query "DistributionList.Items[*].{Id:Id,Domain:DomainName,Aliases:Aliases.Items}" --output table` |
+| `AWS_SDK_DEPLOY_DISTRIBUTION_ID` | auto-detected from CloudFront | Set to skip the lookup, e.g. in CI where less list permission is wanted |
 | `AWS_SDK_DEPLOY_BUCKET` | `automatos-widget-sdk` | Override only if you renamed it |
 | `AWS_SDK_DEPLOY_REGION` | `us-east-1` | |
-| `AWS_SDK_DEPLOY_DOMAIN` | `widgets.automatos.app` | What the smoke test hits |
+| `AWS_SDK_DEPLOY_DOMAIN` | `widgets.automatos.app` | What the smoke test + distribution auto-detect filter for |
 
 ### IAM permissions needed
 
