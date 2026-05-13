@@ -31,6 +31,91 @@ export interface AutomatosConfig {
   tag?: string;
   /** CSS selector for blog widget mount target */
   containerSelector?: string;
+  /**
+   * Page context populated by the host page (e.g. Shopify Liquid block).
+   * Powers PRD-007 proactive engagement and contextual openers.
+   */
+  pageContext?: PageContext;
+  /**
+   * Element selector or HTMLElement to read page-context `data-*` attributes
+   * from. Falls back to the widget mount node. Used as a secondary source
+   * if `pageContext` is not provided directly.
+   */
+  pageContextElement?: string | HTMLElement;
+}
+
+// ── PRD-007: Page context + Proactive engagement ──
+
+/**
+ * Snapshot of the page the shopper is on. Populated by the host (e.g.
+ * Shopify Liquid theme block) and forwarded to the orchestrator on chat init
+ * + proactive opener requests so the agent can respond contextually.
+ */
+export interface PageContext {
+  pageType?: string;
+  template?: string;
+  productId?: string | number;
+  productHandle?: string;
+  productType?: string;
+  productVendor?: string;
+  productTitle?: string;
+  productPrice?: string | number;
+  productAvailable?: boolean;
+  collectionId?: string | number;
+  collectionHandle?: string;
+  collectionTitle?: string;
+  shopDomain?: string;
+  shopCurrency?: string;
+  shopLocale?: string;
+  customerId?: string | number;
+  customerTags?: string;
+  cartItemCount?: number;
+  cartTotalPrice?: string | number;
+}
+
+export type ProactiveTriggerType =
+  | 'time_on_page'
+  | 'scroll_depth'
+  | 'exit_intent'
+  | 'idle';
+
+export interface ProactiveTrigger {
+  type: ProactiveTriggerType;
+  /** seconds (for time_on_page, idle); percent for scroll_depth */
+  seconds?: number;
+  percent?: number;
+}
+
+export type ProactiveFrequencyScope = 'session' | 'day' | 'product_session';
+export type ProactiveGreetingSource =
+  | 'agent'
+  | 'canned'
+  | 'agent_with_canned_fallback';
+export type ProactivePopupStyle = 'corner_bubble' | 'slide_in_card';
+export type ProactiveDismissalScope =
+  | 'session'
+  | 'day'
+  | 'until_navigation';
+
+export interface WidgetProactiveConfig {
+  enabled: boolean;
+  page_types: string[];
+  triggers: ProactiveTrigger[];
+  frequency_cap: {
+    scope: ProactiveFrequencyScope;
+    max_pops: number;
+  };
+  greeting_source: ProactiveGreetingSource;
+  canned_fallback: string;
+  agent_timeout_ms: number;
+  popup_style: ProactivePopupStyle;
+  respect_consent: boolean;
+  dismissal_persistence: ProactiveDismissalScope;
+}
+
+/** Public widget config returned by GET /api/widgets/config */
+export interface WidgetConfigPayload {
+  widget_proactive?: WidgetProactiveConfig;
 }
 
 export interface ThemeConfig {
@@ -67,6 +152,10 @@ export interface ChatRequest {
   conversation_id?: string;
   agent_id?: string;
   model_id?: string;
+  /** PRD-007: page snapshot forwarded to the agent as context */
+  page_context?: PageContext;
+  /** PRD-007: e.g. "proactive_opener" — flips agent into opener-generation mode */
+  trigger_reason?: string;
 }
 
 export interface ChatMessage {
@@ -157,6 +246,8 @@ export interface SessionTokenResponse {
   expires_at: string;
   permissions: string[];
   workspace_id: string;
+  /** PRD-007: public widget config the SDK consumes on init */
+  widget_config?: WidgetConfigPayload;
 }
 
 // ── Widget Messages (internal state) ──

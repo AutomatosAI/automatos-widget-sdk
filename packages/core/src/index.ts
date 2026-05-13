@@ -25,4 +25,14 @@ export type {
   SessionTokenResponse,
   WidgetMessage,
   WidgetEvents,
+  // PRD-007: page context + proactive engagement
+  PageContext,
+  ProactiveTriggerType,
+  ProactiveTrigger,
+  ProactiveFrequencyScope,
+  ProactiveGreetingSource,
+  ProactivePopupStyle,
+  ProactiveDismissalScope,
+  WidgetProactiveConfig,
+  WidgetConfigPayload,
 } from './types';
