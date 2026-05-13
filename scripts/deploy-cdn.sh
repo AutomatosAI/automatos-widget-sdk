@@ -13,19 +13,44 @@
 #   scripts/deploy-cdn.sh v0.2.0
 #   scripts/deploy-cdn.sh v0.2.0 --dry-run
 #
-# Env (override defaults if your infra differs):
-#   AWS_SDK_DEPLOY_BUCKET           default: automatos-widget-sdk
-#   AWS_SDK_DEPLOY_DISTRIBUTION_ID  required — CloudFront distribution ID
+# Auth (in priority order):
+#   1. AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY in current shell
+#   2. Sourced from ../automatos-ai/orchestrator/.env if present
+#   3. AWS profile (SSO / shared creds)
+#
+# Distribution + bucket auto-discovery:
+#   The script auto-detects the CloudFront distribution serving
+#   widgets.automatos.app and the matching S3 bucket. Override with
+#   AWS_SDK_DEPLOY_DISTRIBUTION_ID / AWS_SDK_DEPLOY_BUCKET if needed.
+#
+# Optional env (defaults below are sane for production):
+#   AWS_SDK_DEPLOY_BUCKET           default: auto-detect (automatos-widget-sdk)
+#   AWS_SDK_DEPLOY_DISTRIBUTION_ID  default: auto-detect from CloudFront
 #   AWS_SDK_DEPLOY_REGION           default: us-east-1
 #   AWS_SDK_DEPLOY_DOMAIN           default: widgets.automatos.app
 #
 # Prerequisites:
 #   - aws CLI v2 installed
-#   - aws sts get-caller-identity returns the deploy IAM user/role
 #   - pnpm build run (or this script will run it for you)
 #   - On the branch / commit you want to ship
 
 set -euo pipefail
+
+# ── Auto-load creds from orchestrator .env if shell doesn't have them ─
+# Looks one level up from this repo for the orchestrator. Adjust here if
+# your monorepo layout differs.
+SCRIPT_DIR_FOR_ENV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT_FOR_ENV="$(cd "$SCRIPT_DIR_FOR_ENV/.." && pwd)"
+ORCH_ENV="$REPO_ROOT_FOR_ENV/../automatos-ai/orchestrator/.env"
+
+if [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && [[ -f "$ORCH_ENV" ]]; then
+  echo "[deploy-cdn] Loading AWS creds from $ORCH_ENV"
+  set -a
+  # shellcheck disable=SC1090
+  source "$ORCH_ENV"
+  set +a
+  unset AWS_PROFILE   # env-based creds win over profile lookup
+fi
 
 # ── args ──────────────────────────────────────────────────────────────
 VERSION="${1:-}"
@@ -52,12 +77,6 @@ BUCKET="${AWS_SDK_DEPLOY_BUCKET:-automatos-widget-sdk}"
 DIST_ID="${AWS_SDK_DEPLOY_DISTRIBUTION_ID:-}"
 REGION="${AWS_SDK_DEPLOY_REGION:-us-east-1}"
 DOMAIN="${AWS_SDK_DEPLOY_DOMAIN:-widgets.automatos.app}"
-
-if [[ -z "$DIST_ID" ]]; then
-  echo "ERROR: AWS_SDK_DEPLOY_DISTRIBUTION_ID env var required" >&2
-  echo "Hint: aws cloudfront list-distributions --query \"DistributionList.Items[*].{Id:Id,Domain:DomainName,Aliases:Aliases.Items}\" --output table" >&2
-  exit 1
-fi
 
 # ── repo location ─────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -92,6 +111,20 @@ fi
 
 CALLER=$(aws sts get-caller-identity --query Arn --output text)
 log "AWS identity: $CALLER"
+
+# Auto-discover the CloudFront distribution serving $DOMAIN if not provided.
+if [[ -z "$DIST_ID" ]]; then
+  log "Auto-detecting CloudFront distribution for $DOMAIN..."
+  DIST_ID=$(aws cloudfront list-distributions \
+    --query "DistributionList.Items[?Aliases.Items != null] | [?contains(Aliases.Items, '$DOMAIN')].Id | [0]" \
+    --output text 2>/dev/null || true)
+  if [[ -z "$DIST_ID" ]] || [[ "$DIST_ID" == "None" ]]; then
+    echo "ERROR: could not auto-detect distribution for $DOMAIN" >&2
+    echo "Set AWS_SDK_DEPLOY_DISTRIBUTION_ID manually." >&2
+    exit 1
+  fi
+  log "Distribution: $DIST_ID"
+fi
 
 # ── 2. Build (if dist missing) ────────────────────────────────────────
 if [[ ! -f "$DIST_DIR/widget.global.js" ]]; then
