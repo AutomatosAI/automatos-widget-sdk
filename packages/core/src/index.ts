@@ -34,6 +34,8 @@ export type {
   ProactivePopupStyle,
   ProactiveDismissalScope,
   WidgetProactiveConfig,
+  WidgetCartIdleConfig,
+  WidgetCallbackConfig,
   WidgetConfigPayload,
   ProactiveOverride,
 } from './types';

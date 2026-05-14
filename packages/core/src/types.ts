@@ -135,9 +135,50 @@ export interface WidgetProactiveConfig {
   dismissal_persistence: ProactiveDismissalScope;
 }
 
+// ── PRD-008-A Feature C1: Cart-idle proactive ──
+
+/**
+ * Cart-idle proactive engagement (PRD-008-A Feature C1).
+ *
+ * Fires a popup after the shopper has been idle on the `/cart` page
+ * for `idle_seconds` without progressing to checkout. Independent of
+ * the product-page `widget_proactive` engine (different triggers,
+ * different greeting, but reuses the dismissal-store + popup UI).
+ *
+ * Site capability gate: only renders + arms when the Site has
+ * `capabilities.has_cart = true` (Shopify yes, custom embed no).
+ */
+export interface WidgetCartIdleConfig {
+  enabled: boolean;
+  idle_seconds: number;
+  greeting: string;
+  frequency_cap: {
+    scope: ProactiveFrequencyScope;
+    max_pops: number;
+  };
+}
+
+// ── PRD-008-A Feature B: Callback handoff (browser-side knobs) ──
+
+/**
+ * Browser-side callback feature config (PRD-008-A Feature B).
+ *
+ * The widget receives the merchant's intent phrases + the feature
+ * enabled-flag. Destinations + working-hours stay server-side; the
+ * widget never needs to know which destination types are configured.
+ */
+export interface WidgetCallbackConfig {
+  enabled: boolean;
+  intent_phrases: string[];
+  /** Optional override of the default form heading. */
+  form_heading?: string;
+}
+
 /** Public widget config returned by GET /api/widgets/config */
 export interface WidgetConfigPayload {
   widget_proactive?: WidgetProactiveConfig;
+  cart_idle?: WidgetCartIdleConfig;
+  callback?: WidgetCallbackConfig;
 }
 
 export interface ThemeConfig {

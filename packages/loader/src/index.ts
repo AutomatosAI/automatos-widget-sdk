@@ -2,10 +2,12 @@ import type { AutomatosConfig } from '@automatos/core';
 import { ChatWidget } from '@automatos/chat-widget';
 import { BlogWidget } from '@automatos/blog-widget';
 import { bootstrapProactive } from './proactive';
+import { bootstrapCartIdle } from './cart-idle';
 
 let chatInstance: ChatWidget | null = null;
 let blogInstance: BlogWidget | null = null;
 let proactiveHandle: { dispose: () => void } | null = null;
+let cartIdleHandle: { dispose: () => void } | null = null;
 
 /**
  * Initialize the Automatos widget.
@@ -38,6 +40,23 @@ export function init(config: AutomatosConfig): void {
     .catch((err) => {
       console.warn('[automatos] proactive bootstrap failed', err);
     });
+
+  // PRD-008-A C1: cart-idle proactive (only fires on /cart pages of
+  // Sites with cart_idle.enabled). Independent of widget_proactive —
+  // a Site can have one, both, or neither.
+  bootstrapCartIdle({
+    config,
+    // Greeting is rendered in the popup itself; clicking the popup
+    // just opens the chat. Seed-message wiring through ChatWidget
+    // lives in Phase 8 (callback form integration).
+    onOpenChat: () => chatInstance?.open(),
+  })
+    .then((handle) => {
+      cartIdleHandle = handle;
+    })
+    .catch((err) => {
+      console.warn('[automatos] cart-idle bootstrap failed', err);
+    });
 }
 
 /**
@@ -46,6 +65,8 @@ export function init(config: AutomatosConfig): void {
 export function destroy(): void {
   proactiveHandle?.dispose();
   proactiveHandle = null;
+  cartIdleHandle?.dispose();
+  cartIdleHandle = null;
   chatInstance?.destroy();
   chatInstance = null;
   blogInstance?.destroy();
