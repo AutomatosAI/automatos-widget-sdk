@@ -3,6 +3,12 @@ import { ChatWidget } from '@automatos/chat-widget';
 import { BlogWidget } from '@automatos/blog-widget';
 import { bootstrapProactive } from './proactive';
 import { bootstrapCartIdle } from './cart-idle';
+import {
+  openCallbackForm as openCallbackFormImpl,
+  rememberCallbackContext,
+  resetCallbackContext,
+  type OpenCallbackFormOptions,
+} from './callback';
 
 let chatInstance: ChatWidget | null = null;
 let blogInstance: BlogWidget | null = null;
@@ -27,6 +33,10 @@ export function init(config: AutomatosConfig): void {
     return;
   }
   chatInstance = new ChatWidget(config);
+
+  // PRD-008-A B: stash config so openCallbackForm() can be called from
+  // anywhere (chat-widget intent classifier, popups, merchant code).
+  rememberCallbackContext(config);
 
   // PRD-007: spin up proactive engagement asynchronously. Failures are
   // swallowed inside bootstrapProactive — chat keeps working regardless.
@@ -67,10 +77,20 @@ export function destroy(): void {
   proactiveHandle = null;
   cartIdleHandle?.dispose();
   cartIdleHandle = null;
+  resetCallbackContext();
   chatInstance?.destroy();
   chatInstance = null;
   blogInstance?.destroy();
   blogInstance = null;
+}
+
+/**
+ * Open the phone-capture callback form (PRD-008-A Feature B).
+ * Returns true if the form opened, false if it was suppressed
+ * (already open, init not called, etc.).
+ */
+export function openCallbackForm(opts: OpenCallbackFormOptions = {}): boolean {
+  return openCallbackFormImpl(opts);
 }
 
 /**
@@ -116,12 +136,13 @@ if (typeof window !== 'undefined') {
       open: typeof open;
       close: typeof close;
       toggle: typeof toggle;
+      openCallbackForm: typeof openCallbackForm;
     };
   };
 
   const queue = win.AutomatosWidget?.q;
 
-  win.AutomatosWidget = { init, destroy, open, close, toggle };
+  win.AutomatosWidget = { init, destroy, open, close, toggle, openCallbackForm };
 
   // Replay queued commands
   if (Array.isArray(queue)) {
