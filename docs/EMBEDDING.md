@@ -570,3 +570,73 @@ matching `v*.*.*` and CI handles S3 + CloudFront invalidation.
 If you build an integration for a new host (WordPress plugin, Webflow
 embed, Wix app, etc.), drop a copy in `apps/playground/` and link it
 back here.
+
+---
+
+## 7. Callback handoff form (PRD-008-A, v0.3.0+)
+
+A built-in phone-capture form that POSTs to the orchestrator's
+`/api/widgets/callback` endpoint. Surface it from anywhere — a
+"Request callback" button in your chat UI, a CTA on a high-intent page,
+the proactive popup, or merchant code.
+
+### Open the form
+
+```js
+window.AutomatosWidget.openCallbackForm({
+  // All optional:
+  product_context: "EN 12101 panel",       // pre-fills the product field
+  heading: "Need help with this product?", // overrides default form heading
+  onSuccess: (result) => {
+    // result.request_id — opaque id for idempotent retry
+    // result.eta_phrase — the SLA phrase the form already showed the user
+    console.log("Callback submitted:", result);
+  },
+  onDismiss: () => {
+    console.log("Form closed");
+  },
+});
+```
+
+The form is a self-contained Shadow DOM component — your page's CSS
+can't bleed in and the form's CSS can't bleed out. State machine:
+**editing → submitting → thanks** (or back to editing on validation /
+server error). Inputs are E.164-validated client-side before the
+POST goes out.
+
+### What the merchant must do first
+
+The merchant has to enable the callback feature on their Site at
+`/admin/sites/[siteId]` (Destinations tab) and add at least one
+destination (email, Slack webhook, CRM webhook, or Shopify customer note).
+Without a destination, the request is accepted but never delivered.
+
+If the feature is off when `openCallbackForm` is called, the form
+opens but the submit returns 403 — the form shows the server's specific
+error. Merchants who haven't enabled callback should NOT see the
+"Request callback" CTA in your UI; check the Site config first via
+your existing `/api/widgets/config` flow.
+
+### What lives behind the form
+
+- POST returns 202 within 100ms regardless of destination latency
+- Background fan-out to every configured destination in parallel,
+  with retries on retryable failures (5s, 15s backoff, 3 max attempts)
+- Phone numbers NEVER persist in Automatos (only a salted hash for
+  the 5-min idempotency window) — the plaintext goes to merchant
+  destinations only
+- Every attempt writes a `widget_event_log` row that the dashboard
+  reads for status pills
+
+---
+
+## 8. Cart-idle proactive (PRD-008-A C1, v0.3.0+)
+
+Independent of `openCallbackForm` — fires automatically on `/cart`
+pages when the merchant has cart-idle enabled in their Site settings.
+No SDK API to call; just include the SDK and configure the Site.
+
+The widget reads `cart_idle.enabled`, `idle_seconds`, and `greeting`
+from the Site's public config (same fetch that loads `widget_proactive`).
+If you're integrating the SDK into a non-Shopify host with cart-style
+pages, set `pageContext.pageType = 'cart'` and the engine arms.
