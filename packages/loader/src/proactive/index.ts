@@ -9,28 +9,48 @@
 import type {
   AutomatosConfig,
   PageContext,
-  WidgetProactiveConfig,
 } from '@automatos/core';
 
 import { fetchWidgetConfig } from './config-fetcher';
+import { fetchProactiveOpener } from './fetch-opener';
 import { resolvePageContext } from './page-context';
 import { ProactiveEngine } from './proactive-engine';
 import { ProactivePopup } from './proactive-popup';
+import { resolveProactiveConfig } from './resolve-config';
 
 const DEFAULT_BASE_URL = 'https://api.automatos.app';
 const MOUNT_NODE_SELECTOR = '[data-automatos-widget="chat"]';
+
+export interface FetchOpenerContext {
+  baseUrl: string;
+  apiKey: string;
+  agentId?: string;
+}
+
+export type OpenerFetcher = (
+  pageContext: PageContext,
+  ctx: FetchOpenerContext,
+) => Promise<string | null>;
 
 export interface BootstrapProactiveOptions {
   config: AutomatosConfig;
   /** Hooks for chat widget integration (open + send seed message) */
   onOpenChat: (seedMessage?: string) => void;
-  /** Optional: the agent's contextual opener fetcher (for `agent` greeting source) */
-  fetchOpener?: (pageContext: PageContext) => Promise<string | null>;
+  /** Override the default opener fetcher (e.g. for tests). */
+  fetchOpener?: OpenerFetcher;
   /** Override for tests */
   fetchImpl?: typeof fetch;
   /** Override for tests */
   doc?: Document;
 }
+
+const defaultOpenerFetcher: OpenerFetcher = (pageContext, ctx) =>
+  fetchProactiveOpener({
+    baseUrl: ctx.baseUrl,
+    apiKey: ctx.apiKey,
+    agentId: ctx.agentId,
+    pageContext,
+  });
 
 interface ProactiveHandle {
   dispose(): void;
@@ -43,16 +63,30 @@ export async function bootstrapProactive(
 ): Promise<ProactiveHandle> {
   const { config, onOpenChat } = opts;
 
-  // 1. Fetch the widget config from the orchestrator.
+  // 1. Resolve effective config: theme override OR workspace config can flip on.
+  //    Theme override fields (seconds, message) win over workspace values.
   const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
+  const override = config.proactiveOverride;
+
   const payload = await fetchWidgetConfig({
     baseUrl,
     apiKey: config.apiKey,
     fetchImpl: opts.fetchImpl,
   });
-  const proactive: WidgetProactiveConfig | undefined = payload?.widget_proactive;
 
-  if (!proactive || !proactive.enabled) return NOOP_HANDLE;
+  const proactive = resolveProactiveConfig({
+    workspaceConfig: payload?.widget_proactive,
+    override,
+  });
+
+  console.log(
+    `[automatos.proactive] resolved config: enabled=${proactive.enabled}, page_types=[${proactive.page_types.join(',')}], delay=${proactive.triggers[0]?.seconds ?? '?'}s, freq=${proactive.frequency_cap.scope}/${proactive.frequency_cap.max_pops}`,
+  );
+
+  if (!proactive.enabled) {
+    console.log('[automatos.proactive] disabled — set ON in theme or workspace to activate');
+    return NOOP_HANDLE;
+  }
 
   // 2. Resolve page context.
   const doc = opts.doc ?? document;
@@ -82,26 +116,38 @@ export async function bootstrapProactive(
       });
       popup.mount();
 
-      // Replace canned with agent text if configured.
-      if (
-        proactive.greeting_source !== 'canned' &&
-        opts.fetchOpener
-      ) {
-        const timeoutMs = Math.max(0, proactive.agent_timeout_ms ?? 1500);
-        const openerPromise = opts.fetchOpener(pageContext);
-        const timeoutPromise = new Promise<null>((resolve) =>
-          setTimeout(() => resolve(null), timeoutMs),
-        );
-        const winner = await Promise.race([openerPromise, timeoutPromise]);
-        if (winner && popup.isMounted()) {
-          popup.updateText(winner);
-        }
+      // Canned text is already visible. Now fire the agent opener in the
+      // background and swap when it arrives. If the shopper dismisses
+      // before the opener returns, popup.isMounted() guards the update.
+      if (proactive.greeting_source !== 'canned') {
+        const opener = opts.fetchOpener ?? defaultOpenerFetcher;
+        const started = Date.now();
+        console.log('[automatos.proactive] fetching contextual opener...');
+        opener(pageContext, {
+          baseUrl,
+          apiKey: config.apiKey,
+          agentId: config.agentId,
+        })
+          .then((text) => {
+            const ms = Date.now() - started;
+            if (text && popup.isMounted()) {
+              console.log(`[automatos.proactive] opener received (${ms}ms): "${text}"`);
+              popup.updateText(text);
+            } else if (!text) {
+              console.warn(
+                `[automatos.proactive] opener returned null (${ms}ms) — canned stays. Check POST /api/widgets/chat in Network tab.`,
+              );
+            } else {
+              console.log(
+                `[automatos.proactive] opener returned (${ms}ms) but popup already dismissed.`,
+              );
+            }
+          })
+          .catch((err) => {
+            console.warn('[automatos.proactive] opener fetch threw:', err);
+          });
       }
 
-      // Wire click handler with the resolved opener as seed message
-      // (The popup already calls onOpenChat on container click; we'd need
-      //  to re-bind to pass the resolved text. v1 just opens the chat;
-      //  follow-up can plumb the opener as a seeded assistant message.)
       void reason;
     },
   });
