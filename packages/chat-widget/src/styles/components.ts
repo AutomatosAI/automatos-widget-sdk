@@ -229,6 +229,95 @@ export const componentCSS = /* css */ `
   border-color: #3a2020;
 }
 
+/* ─── Inline callback form (PRD-008-A.3) ─── */
+.aw-bubble-form {
+  /* Override max-width so the form has room to breathe. */
+  max-width: 92%;
+  padding: 14px 16px;
+}
+.aw-form-heading {
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.aw-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+.aw-form-field label {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+  letter-spacing: 0.01em;
+}
+:host([data-theme="dark"]) .aw-form-field label {
+  color: rgba(255, 255, 255, 0.55);
+}
+.aw-form-field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 7px;
+  font-size: 13.5px;
+  font-family: inherit;
+  background: #fff;
+  color: #1a1a1a;
+}
+:host([data-theme="dark"]) .aw-form-field input {
+  background: #1a1a1a;
+  color: #f0f0f0;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.aw-form-field input:focus {
+  outline: none;
+  border-color: var(--aw-primary, #6366f1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aw-primary, #6366f1) 18%, transparent);
+}
+.aw-form-field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.aw-form-error {
+  font-size: 12px;
+  color: #dc2626;
+  min-height: 14px;
+  margin: 4px 0 6px 0;
+}
+.aw-form-submit {
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--aw-primary, #6366f1);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.aw-form-submit:hover { opacity: 0.92; }
+.aw-form-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+.aw-bubble-form-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px;
+}
+.aw-form-success-icon {
+  font-size: 18px;
+  color: #16a34a;
+  font-weight: 700;
+}
+.aw-form-success-text {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .aw-bubble-content {
   font-size: 14px;
   line-height: 1.5;

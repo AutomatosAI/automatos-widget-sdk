@@ -41,16 +41,24 @@ export function init(config: AutomatosConfig): void {
 
   // PRD-008-A.2: subscribe to orchestrator-detected callback intent. When
   // the shopper types a phrase like "call me back" in chat, the SSE stream
-  // fires this event and we auto-open the phone-capture form. Idempotent
-  // (openCallbackForm no-ops if a form is already mounted).
+  // fires this event.
+  //
+  // PRD-008-A.3 (UX improvement): render the form INLINE inside the chat
+  // scrollback instead of as a standalone popup. No context switch for the
+  // engaged shopper; preserves the conversational feel. The popup version
+  // remains available via the global openCallbackForm() API for custom
+  // CTAs or merchant scripts outside chat.
   callbackIntentUnsubscribe = chatInstance.events.on(
     'chat:open-callback-form',
-    ({ productContext }) => {
+    ({ conversationId, productContext }) => {
       console.log(
-        '[automatos.callback] chat-intent matched — opening form',
-        { productContext },
+        '[automatos.callback] chat-intent matched — injecting inline form',
+        { productContext, conversationId },
       );
-      openCallbackFormImpl({ product_context: productContext ?? undefined });
+      chatInstance?.injectCallbackForm({
+        session_id: conversationId,
+        product_context: productContext ?? undefined,
+      });
     },
   );
 
