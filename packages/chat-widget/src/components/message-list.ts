@@ -63,6 +63,17 @@ export class MessageList {
     }
   }
 
+  /**
+   * Append a pre-built custom bubble (e.g. inline callback form) to the
+   * conversation. Not tracked in bubbleMap because it isn't a streaming
+   * assistant message — it's an interactive widget the caller owns.
+   * (PRD-008-A.3)
+   */
+  appendCustomBubble(el: HTMLElement): void {
+    this.container.appendChild(el);
+    this.scrollToBottom();
+  }
+
   showTyping(): HTMLElement {
     const typing = document.createElement('div');
     typing.className = 'aw-typing';

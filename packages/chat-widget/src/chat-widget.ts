@@ -8,6 +8,10 @@ import { FAB } from './components/fab';
 import { ChatPanel } from './components/chat-panel';
 import { MessageList } from './components/message-list';
 import { InputArea } from './components/input-area';
+import {
+  createInlineCallbackForm,
+  type InlineCallbackFormOptions,
+} from './components/inline-callback-form';
 import { baseCSS } from './styles/base';
 import { componentCSS } from './styles/components';
 import { animationCSS } from './styles/animations';
@@ -71,6 +75,34 @@ export class ChatWidget {
     } else {
       this.open();
     }
+  }
+
+  /**
+   * PRD-008-A.3: render the callback form as a chat message bubble inside
+   * the scrollback (no popup). Opens the chat panel if it's closed so the
+   * shopper sees the form. Idempotent — calling again while a previous form
+   * is still pending submission is a no-op.
+   */
+  injectCallbackForm(opts: {
+    session_id: string;
+    product_context?: string;
+    heading?: string;
+    onSuccess?: InlineCallbackFormOptions['onSuccess'];
+  }): boolean {
+    if (!this.panel.isOpen) {
+      this.open();
+    }
+    const formEl = createInlineCallbackForm({
+      baseUrl: this.config.baseUrl ?? 'https://api.automatos.app',
+      apiKey: this.config.apiKey,
+      session_id: opts.session_id,
+      product_context: opts.product_context,
+      heading: opts.heading,
+      primaryColor: this.config.themeOverrides?.['--aw-primary'],
+      onSuccess: opts.onSuccess,
+    });
+    this.messageList.appendCustomBubble(formEl);
+    return true;
   }
 
   destroy(): void {

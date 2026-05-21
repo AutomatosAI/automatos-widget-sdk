@@ -3,6 +3,11 @@ export { EventBus } from './event-bus';
 export { AuthManager } from './auth';
 export { ConversationManager } from './conversation';
 export { parseSSEStream } from './sse-parser';
+export {
+  submitCallback,
+  type CallbackSubmitInput,
+  type CallbackSubmitResult,
+} from './callback-submit';
 export { AutomatosError, AuthError, NetworkError, StreamError } from './errors';
 export type {
   AutomatosConfig,
