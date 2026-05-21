@@ -1,0 +1,176 @@
+# Auto-deploy the Widget SDK to CDN whenever main moves.
+#
+# Triggers on every push to main that touches the SDK source (packages/**
+# or the deploy script itself). Reads the version from
+# packages/loader/package.json and hands it to scripts/deploy-cdn.sh, so
+# manual and CI deploys share one code path.
+#
+# Idempotency: deploy-cdn.sh enforces version-immutability — if the version
+# hasn't bumped, the script exits non-zero with "already published". This
+# workflow captures that exact case and exits 0 with a notice, so PRs that
+# don't bump the version don't fail CI; they just skip the deploy.
+#
+# Required GitHub secrets (Settings → Secrets and variables → Actions):
+#   AWS_SDK_DEPLOY_ACCESS_KEY_ID
+#   AWS_SDK_DEPLOY_SECRET_ACCESS_KEY
+#   AWS_SDK_DEPLOY_REGION              e.g. us-east-1
+#   AWS_SDK_DEPLOY_BUCKET              e.g. automatos-widget-sdk
+#   AWS_SDK_DEPLOY_DISTRIBUTION_ID     CloudFront distribution ID
+#
+# Manual run: Actions tab → "Deploy SDK to CDN (main)" → "Run workflow".
+# Use workflow_dispatch when you need to force a deploy without a code push
+# (e.g. recovering from a stale CloudFront cache after a config change).
+
+name: Deploy SDK to CDN (main)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'scripts/deploy-cdn.sh'
+      - '.github/workflows/deploy-cdn-on-main.yml'
+  workflow_dispatch:
+    inputs:
+      force_version:
+        description: "Override version (e.g. v0.3.2). Leave blank to read from packages/loader/package.json."
+        required: false
+        default: ''
+
+concurrency:
+  group: deploy-cdn-main
+  cancel-in-progress: false   # never cancel a deploy mid-flight
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SDK
+        run: pnpm -r build
+
+      - name: Run loader unit tests
+        # Tests are fast (~3s) and gate the deploy. A broken bundle should
+        # never reach production. If you need to bypass (e.g. CDN-only
+        # config change), use workflow_dispatch with force_version + revert
+        # this step locally.
+        run: pnpm -F @automatos/loader test
+
+      - name: Resolve version
+        id: version
+        env:
+          # Pass workflow_dispatch input as an env var (never interpolated
+          # directly into shell — command-injection prevention).
+          FORCE_VERSION: ${{ inputs.force_version }}
+        run: |
+          if [[ -n "$FORCE_VERSION" ]]; then
+            # Validate input shape: only allow v<digits>.<digits>.<digits>
+            # (plus optional -beta suffix) to keep shell injection impossible.
+            if ! [[ "$FORCE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+              echo "::error::Invalid force_version format: $FORCE_VERSION"
+              echo "Expected format: v0.3.2 or v0.3.2-beta.1"
+              exit 1
+            fi
+            v="$FORCE_VERSION"
+          else
+            raw=$(node -p "require('./packages/loader/package.json').version")
+            v="v$raw"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Deploying version: $v"
+
+      - name: Deploy via scripts/deploy-cdn.sh
+        id: deploy
+        env:
+          # Secret values (trusted) and computed output (validated above)
+          # passed via env, not interpolated into the run: script body.
+          DEPLOY_VERSION: ${{ steps.version.outputs.version }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_SDK_DEPLOY_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SDK_DEPLOY_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_SDK_DEPLOY_REGION }}
+          AWS_SDK_DEPLOY_BUCKET: ${{ secrets.AWS_SDK_DEPLOY_BUCKET }}
+          AWS_SDK_DEPLOY_DISTRIBUTION_ID: ${{ secrets.AWS_SDK_DEPLOY_DISTRIBUTION_ID }}
+        run: |
+          set +e
+          out=$(./scripts/deploy-cdn.sh "$DEPLOY_VERSION" 2>&1)
+          rc=$?
+          echo "$out"
+
+          # Idempotent skip: version already on CDN. Not a failure.
+          if echo "$out" | grep -q "already published"; then
+            echo "::notice::Version $DEPLOY_VERSION is already on CDN — no deploy needed. Bump packages/loader/package.json to ship new code."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ $rc -ne 0 ]]; then
+            echo "::error::deploy-cdn.sh exited with $rc"
+            exit $rc
+          fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+
+      - name: Verify CDN serves new bundle
+        if: steps.deploy.outputs.skipped != 'true'
+        env:
+          DEPLOY_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -e
+          URL="https://widgets.automatos.app/${DEPLOY_VERSION}/widget.global.js"
+          echo "Checking immutable URL: $URL"
+          # Immutable path serves from S3-backed cache, no invalidation
+          # propagation delay. If this 404s, the upload failed silently.
+          for i in {1..12}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "::notice::$URL is live (HTTP 200)"
+              break
+            fi
+            echo "attempt $i: HTTP $HTTP_CODE — retrying in 5s"
+            sleep 5
+            if [ "$i" = "12" ]; then
+              echo "::error::Immutable URL never came up. S3 upload may have failed."
+              exit 1
+            fi
+          done
+
+      - name: Summary
+        if: always()
+        env:
+          DEPLOY_VERSION: ${{ steps.version.outputs.version }}
+          DEPLOY_SKIPPED: ${{ steps.deploy.outputs.skipped }}
+          TRIGGER: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "## SDK CDN deploy"
+            echo ""
+            if [[ "$DEPLOY_SKIPPED" == "true" ]]; then
+              echo "🟡 **Skipped** — version \`$DEPLOY_VERSION\` already on CDN."
+              echo ""
+              echo "To ship new code: bump \`packages/loader/package.json\` version and push to main."
+            else
+              echo "✅ **Deployed** version \`$DEPLOY_VERSION\`"
+              echo ""
+              echo "- Immutable: https://widgets.automatos.app/${DEPLOY_VERSION}/widget.global.js"
+              echo "- Alias: https://widgets.automatos.app/v0/widget.global.js"
+            fi
+            echo ""
+            echo "Triggered by: $TRIGGER (commit \`$SHA\`)"
+          } >> "$GITHUB_STEP_SUMMARY"
