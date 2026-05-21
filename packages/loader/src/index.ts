@@ -14,6 +14,7 @@ let chatInstance: ChatWidget | null = null;
 let blogInstance: BlogWidget | null = null;
 let proactiveHandle: { dispose: () => void } | null = null;
 let cartIdleHandle: { dispose: () => void } | null = null;
+let callbackIntentUnsubscribe: (() => void) | null = null;
 
 /**
  * Initialize the Automatos widget.
@@ -37,6 +38,21 @@ export function init(config: AutomatosConfig): void {
   // PRD-008-A B: stash config so openCallbackForm() can be called from
   // anywhere (chat-widget intent classifier, popups, merchant code).
   rememberCallbackContext(config);
+
+  // PRD-008-A.2: subscribe to orchestrator-detected callback intent. When
+  // the shopper types a phrase like "call me back" in chat, the SSE stream
+  // fires this event and we auto-open the phone-capture form. Idempotent
+  // (openCallbackForm no-ops if a form is already mounted).
+  callbackIntentUnsubscribe = chatInstance.events.on(
+    'chat:open-callback-form',
+    ({ productContext }) => {
+      console.log(
+        '[automatos.callback] chat-intent matched — opening form',
+        { productContext },
+      );
+      openCallbackFormImpl({ product_context: productContext ?? undefined });
+    },
+  );
 
   // PRD-007: spin up proactive engagement asynchronously. Failures are
   // swallowed inside bootstrapProactive — chat keeps working regardless.
@@ -77,6 +93,8 @@ export function destroy(): void {
   proactiveHandle = null;
   cartIdleHandle?.dispose();
   cartIdleHandle = null;
+  callbackIntentUnsubscribe?.();
+  callbackIntentUnsubscribe = null;
   resetCallbackContext();
   chatInstance?.destroy();
   chatInstance = null;

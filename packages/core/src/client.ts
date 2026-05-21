@@ -266,6 +266,17 @@ export class AutomatosClient {
         });
         break;
       }
+      // PRD-008-A.2: orchestrator detected a callback intent phrase in the
+      // shopper's message. Forward to the bus; the loader subscribes and
+      // auto-opens the phone-capture form. Idempotent: form-open is no-op
+      // if already mounted.
+      case 'open-callback-form': {
+        this.events.emit('chat:open-callback-form', {
+          conversationId: (event.data.conversation_id as string) ?? '',
+          productContext: (event.data.product_context as string | null) ?? null,
+        });
+        break;
+      }
     }
   }
 

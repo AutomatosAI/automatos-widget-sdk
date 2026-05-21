@@ -230,7 +230,14 @@ export interface ChatMessage {
 
 // ── SSE Event Types ──
 
-export type SSEEventType = 'message' | 'tool-start' | 'tool-end' | 'tool-data' | 'done' | 'error';
+export type SSEEventType =
+  | 'message'
+  | 'tool-start'
+  | 'tool-end'
+  | 'tool-data'
+  | 'done'
+  | 'error'
+  | 'open-callback-form';
 
 export interface SSEEvent {
   event: SSEEventType;
@@ -274,6 +281,20 @@ export interface SSEErrorEvent {
   data: {
     message: string;
     code?: string;
+  };
+}
+
+/**
+ * PRD-008-A.2: emitted by the orchestrator when the shopper's message matches
+ * one of the Site's configured callback intent phrases. The SDK should auto-
+ * open the phone-capture form. Safe to ignore if the loader hasn't been
+ * initialised with callback support.
+ */
+export interface SSEOpenCallbackFormEvent {
+  event: 'open-callback-form';
+  data: {
+    conversation_id: string;
+    product_context?: string | null;
   };
 }
 
@@ -332,6 +353,9 @@ export interface WidgetEvents {
   'chat:error': { messageId: string; error: Error };
   'chat:tool-start': { tool: string; arguments?: Record<string, unknown> };
   'chat:tool-end': { tool: string; result?: unknown };
+  // PRD-008-A.2: orchestrator-detected callback intent. Loader listens and
+  // auto-opens the phone-capture form when this fires.
+  'chat:open-callback-form': { conversationId: string; productContext?: string | null };
   'widget:open': void;
   'widget:close': void;
   'widget:ready': void;
