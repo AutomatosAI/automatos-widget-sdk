@@ -41,6 +41,15 @@ export class ChatWidget {
 
   // ── Public API ──
 
+  /**
+   * Event bus exposed so external code (e.g. the loader's callback module)
+   * can listen for chat lifecycle events without reaching into private state.
+   * Added in PRD-008-A.2 for the open-callback-form subscription.
+   */
+  get events(): AutomatosClient['events'] {
+    return this.client.events;
+  }
+
   open(): void {
     this.panel.show();
     this.fab.setOpen(true);
