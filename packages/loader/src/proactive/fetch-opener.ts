@@ -19,6 +19,12 @@ export interface FetchOpenerOptions {
   agentId?: string;
   pageContext: PageContext;
   /**
+   * Which proactive trigger to send to the orchestrator. Picks the matching
+   * directive builder server-side. Default 'proactive_opener' (product-page).
+   * PRD-008-B Feature C2 uses 'cart_idle' for the cart-page nudge.
+   */
+  triggerReason?: 'proactive_opener' | 'cart_idle';
+  /**
    * Hard timeout for the whole request, including tool calls + LLM generation.
    * Default 30s — real-world agent responses with a knowledge-graph lookup +
    * LLM completion often take 5-15s.
@@ -38,7 +44,7 @@ export async function fetchProactiveOpener(
   const body = {
     message: '',
     agent_id: opts.agentId,
-    trigger_reason: 'proactive_opener',
+    trigger_reason: opts.triggerReason ?? 'proactive_opener',
     page_context: opts.pageContext,
   };
 

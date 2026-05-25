@@ -93,6 +93,18 @@ export interface PageContext {
   customerTags?: string;
   cartItemCount?: number;
   cartTotalPrice?: string | number;
+  /**
+   * PRD-008-B Feature C2: cart line items (only populated on /cart pages).
+   * Used by the orchestrator to walk FBT edges across the whole cart and
+   * suggest cross-sells. Optional everywhere — empty/missing on non-cart
+   * pages.
+   */
+  cartItems?: Array<{
+    id: string | number;
+    handle: string;
+    title: string;
+    qty: number;
+  }>;
 }
 
 export type ProactiveTriggerType =
