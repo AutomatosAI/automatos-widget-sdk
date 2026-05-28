@@ -4,6 +4,11 @@ export { AuthManager } from './auth';
 export { ConversationManager } from './conversation';
 export { parseSSEStream } from './sse-parser';
 export {
+  readPageContextFromElement,
+  resolvePageContext,
+  type ResolvePageContextInput,
+} from './page-context';
+export {
   submitCallback,
   type CallbackSubmitInput,
   type CallbackSubmitResult,

@@ -4,6 +4,7 @@ import type {
   BlogPostListResponse,
   ChatMessage,
   ChatRequest,
+  PageContext,
   SSEEvent,
   WidgetEvents,
   WidgetMessage,
@@ -12,9 +13,14 @@ import { EventBus } from './event-bus';
 import { AuthManager } from './auth';
 import { ConversationManager } from './conversation';
 import { parseSSEStream } from './sse-parser';
+import { resolvePageContext } from './page-context';
 import { AuthError, NetworkError } from './errors';
 
 const DEFAULT_BASE_URL = 'https://api.automatos.app';
+
+/** Host-page mount node the Liquid block / embed snippet renders. Carries the
+ *  page-context `data-*` attributes when the host doesn't pass them via config. */
+const MOUNT_NODE_SELECTOR = '[data-automatos-widget="chat"]';
 
 export class AutomatosClient {
   readonly events = new EventBus<WidgetEvents>();
@@ -71,6 +77,11 @@ export class AutomatosClient {
         conversation_id: this.conversation.conversationId ?? undefined,
         agent_id: this.config.agentId,
         model_id: this.config.modelId,
+        // PRD-141: forward the current page snapshot on every regular message
+        // (not just proactive openers) so the agent can resolve "this product"
+        // / "it" deictically and ground answers in real page facts. Resolved
+        // per-send so SPA navigations stay fresh. Omitted when empty.
+        page_context: this.currentPageContext(),
       };
 
       const authHeader = await this.auth.getAuthHeader();
@@ -117,6 +128,21 @@ export class AutomatosClient {
     }
 
     return { userMessage, assistantMessage };
+  }
+
+  /**
+   * Resolve the visitor's current page snapshot using the documented
+   * precedence (config.pageContext → pageContextElement → mount-node attrs).
+   * Returns undefined when nothing usable is present so the field is dropped
+   * from the request body. Re-resolved on each send to stay fresh.
+   */
+  private currentPageContext(): PageContext | undefined {
+    const mountNode =
+      typeof document !== 'undefined'
+        ? document.querySelector(MOUNT_NODE_SELECTOR)
+        : null;
+    const ctx = resolvePageContext({ config: this.config, mountNode });
+    return Object.keys(ctx).length > 0 ? ctx : undefined;
   }
 
   /**
