@@ -81,11 +81,48 @@ export interface ResolvePageContextInput {
   doc?: Document;
 }
 
+// Shopify Markets prefix the path with a locale/market handle, e.g.
+// `/en-gb/cart` or `/fr/products/x`. Strip one leading 2-letter (optionally
+// `xx-yy`) segment before matching. The `(?=\/|$)` lookahead only strips when a
+// further segment follows (or the locale stands alone), so real first segments
+// like `/cart` stay intact.
+const LOCALE_PREFIX = /^\/[a-z]{2}(?:-[a-z]{2})?(?=\/|$)/;
+
 /**
- * Resolve the page context using the documented precedence order.
- * Pure function — no DOM mutation, safe to call repeatedly.
+ * Infer the Shopify page type from the URL path as a LAST resort.
+ *
+ * Shopify theme embeds don't reliably set `data-page-type` on the widget mount
+ * node — the embed is theme-authored and optional. Without a `pageType` the
+ * cart-idle engine never arms (it gates on `pageType === 'cart'`), so an
+ * untagged cart page silently disables the abandon-cart flow. The URL path is
+ * the reliable fallback: Shopify routing guarantees `/cart`, `/products/<h>`
+ * and `/collections/<h>`.
+ *
+ * Returns `undefined` for anything it can't classify — including `/` — so a
+ * visitor with no host-supplied context still resolves to an empty snapshot
+ * rather than a guessed page type. Only ever used to FILL a missing pageType;
+ * a host-curated value always wins (see `resolvePageContext`).
  */
-export function resolvePageContext(input: ResolvePageContextInput): PageContext {
+export function inferPageTypeFromPath(
+  pathname: string | null | undefined,
+): string | undefined {
+  if (!pathname) return undefined;
+  const path = pathname.replace(LOCALE_PREFIX, '') || '/';
+  if (path === '/cart' || path.startsWith('/cart/')) return 'cart';
+  if (path.startsWith('/products/')) return 'product';
+  if (path.startsWith('/collections/')) {
+    // `/collections/<c>/products/<p>` is a product page in Shopify routing.
+    return path.includes('/products/') ? 'product' : 'collection';
+  }
+  return undefined;
+}
+
+function resolvePathname(doc?: Document): string | undefined {
+  const target = doc ?? (typeof document !== 'undefined' ? document : undefined);
+  return target?.location?.pathname;
+}
+
+function resolveHostContext(input: ResolvePageContextInput): PageContext {
   const { config, mountNode, doc } = input;
 
   // 1. Direct from config — highest priority, host has already curated it
@@ -112,4 +149,23 @@ export function resolvePageContext(input: ResolvePageContextInput): PageContext 
   }
 
   return {};
+}
+
+/**
+ * Resolve the page context using the documented precedence order, then fill a
+ * missing `pageType` from the URL path. Pure function — no DOM mutation, safe
+ * to call repeatedly.
+ */
+export function resolvePageContext(input: ResolvePageContextInput): PageContext {
+  const resolved = resolveHostContext(input);
+
+  // URL-based pageType fallback — never overrides a host-supplied value, only
+  // fills the gap when the theme didn't tag the page. This is what lets the
+  // cart-idle engine arm on an untagged `/cart` page.
+  if (!resolved.pageType) {
+    const inferred = inferPageTypeFromPath(resolvePathname(input.doc));
+    if (inferred) return { ...resolved, pageType: inferred };
+  }
+
+  return resolved;
 }

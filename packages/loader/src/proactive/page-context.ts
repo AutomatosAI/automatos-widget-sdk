@@ -8,5 +8,6 @@
 export {
   readPageContextFromElement,
   resolvePageContext,
+  inferPageTypeFromPath,
   type ResolvePageContextInput,
 } from '@automatos/core';
