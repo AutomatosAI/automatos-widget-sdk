@@ -6,6 +6,7 @@ export { parseSSEStream } from './sse-parser';
 export {
   readPageContextFromElement,
   resolvePageContext,
+  inferPageTypeFromPath,
   type ResolvePageContextInput,
 } from './page-context';
 export {

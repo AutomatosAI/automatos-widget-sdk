@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  inferPageTypeFromPath,
   readPageContextFromElement,
   resolvePageContext,
 } from '../proactive/page-context';
@@ -107,5 +108,41 @@ describe('resolvePageContext', () => {
 
   it('returns {} when nothing is provided', () => {
     expect(resolvePageContext({ config: {} })).toEqual({});
+  });
+
+  it('infers pageType from the URL when the page is untagged (cart-idle fix)', () => {
+    // Production bug: Shopify theme embed omits data-page-type, so the mount
+    // node carries no pageType and cart-idle never arms. The URL fallback must
+    // recover 'cart' from the path so the engine can arm.
+    const original = window.location.pathname;
+    window.history.pushState({}, '', '/cart');
+    try {
+      const mountNode = document.createElement('div'); // deliberately untagged
+      const ctx = resolvePageContext({ config: {}, mountNode });
+      expect(ctx.pageType).toBe('cart');
+    } finally {
+      window.history.pushState({}, '', original);
+    }
+  });
+
+  it('URL fallback never overrides a tagged mount node', () => {
+    const original = window.location.pathname;
+    window.history.pushState({}, '', '/cart');
+    try {
+      const mountNode = document.createElement('div');
+      mountNode.setAttribute('data-page-type', 'product');
+      const ctx = resolvePageContext({ config: {}, mountNode });
+      expect(ctx.pageType).toBe('product');
+    } finally {
+      window.history.pushState({}, '', original);
+    }
+  });
+});
+
+describe('inferPageTypeFromPath (re-exported from core)', () => {
+  it('classifies cart + collection paths and ignores "/"', () => {
+    expect(inferPageTypeFromPath('/cart')).toBe('cart');
+    expect(inferPageTypeFromPath('/collections/all')).toBe('collection');
+    expect(inferPageTypeFromPath('/')).toBeUndefined();
   });
 });
