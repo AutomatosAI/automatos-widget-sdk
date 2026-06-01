@@ -8,8 +8,10 @@ function initBlog(layout: string) {
     apiKey: 'ak_pub_test_123',
     widget: 'blog',
     baseUrl: 'http://localhost:8000',
-    layout: layout as 'grid' | 'list' | 'featured' | 'minimal',
-    postsPerPage: 6,
+    blogConfig: {
+      layout: layout as 'grid' | 'list' | 'featured' | 'minimal',
+      postsPerPage: 6,
+    },
     containerSelector: '#blog-container',
     theme: 'light',
   });

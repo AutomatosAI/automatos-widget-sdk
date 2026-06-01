@@ -28,6 +28,15 @@ export function createBlogShadowHost(
     }
   }
 
+  // Merchant-configurable desktop grid columns. Custom properties inherit
+  // through the shadow boundary, so setting it on the host drives the grid
+  // CSS (`repeat(var(--aw-blog-columns, 3), 1fr)`). Clamp to a sane range.
+  const cols = config.blogConfig?.columns;
+  if (typeof cols === 'number' && Number.isFinite(cols)) {
+    const clamped = Math.min(6, Math.max(1, Math.round(cols)));
+    host.style.setProperty('--aw-blog-columns', String(clamped));
+  }
+
   if (config.containerSelector) {
     const target = document.querySelector(config.containerSelector);
     if (target) {

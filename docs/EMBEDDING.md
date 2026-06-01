@@ -220,7 +220,7 @@ interface AutomatosInitConfig {
   greeting?: string;
   agentId?: string;
   containerSelector?: string;
-  blogConfig?: { layout?: string; postsPerPage?: number; category?: string };
+  blogConfig?: { layout?: string; postsPerPage?: number; category?: string; columns?: number };
   themeOverrides?: Record<string, string>;
 }
 
@@ -408,6 +408,7 @@ extra headers.
 | `blogConfig.layout`  |      | ✅   | `'grid' \| 'list' \| 'featured' \| 'minimal'`.         |
 | `blogConfig.postsPerPage` |  | ✅   | Default 6, max 50.                                     |
 | `blogConfig.category` |     | ✅   | Filter to a single category.                           |
+| `blogConfig.columns` |     | ✅   | Desktop grid columns (default 3, 1–6). Grid layout only; collapses to 2 at ≤900px, 1 at ≤600px. |
 | `themeOverrides`     | ✅   | ✅   | CSS custom properties (e.g. `'--aw-primary': '#000'`). |
 | `pageContext`        | ✅   |      | Page-context object (see §3a) — powers proactive engagement. |
 | `pageContextElement` | ✅   |      | Selector / element to read `data-*` attrs from when `pageContext` not provided. |

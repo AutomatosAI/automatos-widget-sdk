@@ -89,6 +89,8 @@ export interface AutomatosBlogProps {
   postsPerPage?: number;
   category?: string;
   tag?: string;
+  /** Desktop grid columns (default 3, 1–6). Grid layout only. */
+  columns?: number;
   theme?: 'light' | 'dark';
   themeOverrides?: Partial<Record<string, string>>;
   className?: string;
@@ -109,10 +111,13 @@ export function AutomatosBlog(props: AutomatosBlogProps) {
       widget: 'blog',
       baseUrl: props.baseUrl,
       theme: props.theme ?? 'light',
-      layout: props.layout ?? 'grid',
-      postsPerPage: props.postsPerPage ?? 6,
-      category: props.category,
-      tag: props.tag,
+      blogConfig: {
+        layout: props.layout ?? 'grid',
+        postsPerPage: props.postsPerPage ?? 6,
+        category: props.category,
+        tag: props.tag,
+        columns: props.columns,
+      },
       containerSelector: `#${id}`,
       themeOverrides: props.themeOverrides as AutomatosConfig['themeOverrides'],
     };
@@ -123,7 +128,7 @@ export function AutomatosBlog(props: AutomatosBlogProps) {
       widgetRef.current?.destroy();
       widgetRef.current = null;
     };
-  }, [props.apiKey, props.baseUrl, props.layout, props.postsPerPage, props.category, props.tag, props.theme]);
+  }, [props.apiKey, props.baseUrl, props.layout, props.postsPerPage, props.category, props.tag, props.columns, props.theme]);
 
   return <div ref={containerRef} className={props.className} />;
 }

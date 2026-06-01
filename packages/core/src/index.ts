@@ -17,6 +17,7 @@ export {
 export { AutomatosError, AuthError, NetworkError, StreamError } from './errors';
 export type {
   AutomatosConfig,
+  BlogConfig,
   ThemeConfig,
   WidgetType,
   WidgetPosition,
