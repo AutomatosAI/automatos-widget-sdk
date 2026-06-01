@@ -46,7 +46,7 @@ export class PostListing {
 
   showLoading(): void {
     clearElement(this.postsContainer);
-    const count = this.layout === 'minimal' ? this.postsPerPage : Math.min(this.postsPerPage, 4);
+    const count = this.layout === 'minimal' ? this.postsPerPage : Math.min(this.postsPerPage, 6);
     const wrapper = this.createLayoutWrapper();
     for (let i = 0; i < count; i++) {
       wrapper.appendChild(buildSkeletonCard());
