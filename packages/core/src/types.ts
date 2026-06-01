@@ -20,15 +20,8 @@ export interface AutomatosConfig {
   modelId?: string;
   /** Custom CSS properties to override theme defaults */
   themeOverrides?: Partial<ThemeConfig>;
-  // Blog-specific config
-  /** Blog layout variant */
-  layout?: BlogLayout;
-  /** Number of posts per page (default 6) */
-  postsPerPage?: number;
-  /** Filter by category */
-  category?: string;
-  /** Filter by tag */
-  tag?: string;
+  /** Blog widget configuration — layout, pagination, filters, columns. */
+  blogConfig?: BlogConfig;
   /** CSS selector for blog widget mount target */
   containerSelector?: string;
   /**
@@ -49,6 +42,27 @@ export interface AutomatosConfig {
    * without needing dashboard / API access.
    */
   proactiveOverride?: ProactiveOverride;
+}
+
+/**
+ * Blog widget configuration. Passed under `blogConfig` to
+ * `AutomatosWidget.init()` — see docs/EMBEDDING.md for the public contract.
+ */
+export interface BlogConfig {
+  /** Layout variant (default 'grid'). */
+  layout?: BlogLayout;
+  /** Posts per page (default 6). */
+  postsPerPage?: number;
+  /** Filter to a single category. */
+  category?: string;
+  /** Filter to a single tag. */
+  tag?: string;
+  /**
+   * Desktop grid columns (default 3). Applies to the 'grid' layout only.
+   * Collapses to 2 columns at ≤900px and 1 at ≤600px regardless of this
+   * value. Clamped to 1–6.
+   */
+  columns?: number;
 }
 
 /**

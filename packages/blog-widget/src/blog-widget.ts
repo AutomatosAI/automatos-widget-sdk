@@ -47,8 +47,8 @@ export class BlogWidget {
     this.host = host;
     this.container = container;
 
-    const layout: BlogLayout = this.config.layout ?? 'grid';
-    const postsPerPage = this.config.postsPerPage ?? 6;
+    const layout: BlogLayout = this.config.blogConfig?.layout ?? 'grid';
+    const postsPerPage = this.config.blogConfig?.postsPerPage ?? 6;
 
     this.listing = new PostListing(layout, postsPerPage);
     this.listing.onPostClick = (slug) => this.navigateToPost(slug);
@@ -73,9 +73,9 @@ export class BlogWidget {
     try {
       const response = await this.client.listPosts({
         page,
-        perPage: this.config.postsPerPage ?? 6,
-        category: this.config.category,
-        tag: this.config.tag,
+        perPage: this.config.blogConfig?.postsPerPage ?? 6,
+        category: this.config.blogConfig?.category,
+        tag: this.config.blogConfig?.tag,
       });
 
       this.cache.set(page, response);
