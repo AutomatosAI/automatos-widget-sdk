@@ -6,6 +6,8 @@ import type {
   ChatRequest,
   PageContext,
   SSEEvent,
+  SSEEventType,
+  WidgetConfigPayload,
   WidgetEvents,
   WidgetMessage,
 } from './types';
@@ -15,12 +17,16 @@ import { ConversationManager } from './conversation';
 import { parseSSEStream } from './sse-parser';
 import { resolvePageContext } from './page-context';
 import { AuthError, NetworkError } from './errors';
+import { resolveAIDisclosure } from './ai-disclosure';
 
 const DEFAULT_BASE_URL = 'https://api.automatos.app';
 
 /** Host-page mount node the Liquid block / embed snippet renders. Carries the
  *  page-context `data-*` attributes when the host doesn't pass them via config. */
 const MOUNT_NODE_SELECTOR = '[data-automatos-widget="chat"]';
+
+/** PRD-264 EUAI-02a: the stream's first event, named by `event:` or by `data.type`. */
+const AI_DISCLOSURE_EVENT: SSEEventType = 'ai_disclosure';
 
 export class AutomatosClient {
   readonly events = new EventBus<WidgetEvents>();
@@ -164,6 +170,27 @@ export class AutomatosClient {
     return messages;
   }
 
+  /**
+   * Fetch the public widget config (`GET /api/widgets/config`).
+   *
+   * PRD-264 EUAI-02b: the chat widget reads `ai_disclosure` from it so the
+   * server's notice shows before the first message. Throws `NetworkError`
+   * on a non-2xx answer; callers keep the English default notice then.
+   */
+  async getWidgetConfig(): Promise<WidgetConfigPayload> {
+    const authHeader = await this.auth.getAuthHeader();
+    const res = await fetch(`${this.baseUrl}/api/widgets/config`, {
+      headers: { Authorization: authHeader },
+    });
+
+    if (!res.ok) {
+      throw new NetworkError('Failed to fetch widget config', res.status);
+    }
+
+    const json = (await res.json()) as { config?: WidgetConfigPayload } | null;
+    return json?.config ?? {};
+  }
+
   // ── Blog API ──
 
   async listPosts(options?: {
@@ -249,7 +276,22 @@ export class AutomatosClient {
     this.events.removeAll();
   }
 
+  /**
+   * PRD-264 EUAI-02b: forward the server's AI notice (the stream's first
+   * event) to the widget. A stream that names it only in `data.type`, with
+   * no `event:` line, still delivers it as the notice and never as text.
+   * Returns true when the event was the notice.
+   */
+  private handleDisclosureEvent(event: SSEEvent): boolean {
+    if (event.event !== AI_DISCLOSURE_EVENT && event.data.type !== AI_DISCLOSURE_EVENT) {
+      return false;
+    }
+    this.events.emit('chat:ai-disclosure', resolveAIDisclosure(event.data));
+    return true;
+  }
+
   private handleSSEEvent(event: SSEEvent, assistantMessageId: string): void {
+    if (this.handleDisclosureEvent(event)) return;
     switch (event.event) {
       case 'message': {
         const content = (event.data.content as string) ?? '';

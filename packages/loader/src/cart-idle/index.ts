@@ -13,7 +13,7 @@
  * as the product-page proactive opener.
  */
 
-import type { AutomatosConfig } from '@automatos/core';
+import type { AutomatosConfig, WidgetConfigPayload } from '@automatos/core';
 
 import { fetchWidgetConfig } from '../proactive/config-fetcher';
 import { fetchProactiveOpener } from '../proactive/fetch-opener';
@@ -47,7 +47,7 @@ export async function bootstrapCartIdle(
   const { config, onOpenChat } = opts;
   const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
 
-  let payload;
+  let payload: WidgetConfigPayload | undefined;
   try {
     payload = await fetchWidgetConfig({
       baseUrl,
@@ -89,6 +89,8 @@ export async function bootstrapCartIdle(
       let currentGreeting = greeting;
       const popup = new ProactivePopup({
         text: greeting,
+        // PRD-264 EUAI-02b: the popup carries the server's AI badge.
+        disclosure: payload?.ai_disclosure,
         style: 'corner_bubble',
         position: config.position ?? 'bottom-right',
         primaryColor: config.themeOverrides?.['--aw-primary'],

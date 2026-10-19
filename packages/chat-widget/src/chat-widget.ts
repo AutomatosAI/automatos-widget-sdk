@@ -1,5 +1,7 @@
 import {
   AutomatosClient,
+  DEFAULT_AI_DISCLOSURE,
+  resolveAIDisclosure,
   type AutomatosConfig,
   type WidgetMessage,
 } from '@automatos/core';
@@ -15,6 +17,12 @@ import {
 import { baseCSS } from './styles/base';
 import { componentCSS } from './styles/components';
 import { animationCSS } from './styles/animations';
+import { aiNoticeCSS } from './styles/ai-notice';
+
+/** Public keys authenticate on each request; others exchange for a session first. */
+const PUBLIC_KEY_PREFIX = 'ak_pub_';
+/** Message id of the deployer's greeting, rendered after the AI notice. */
+const GREETING_MESSAGE_ID = 'aw_greeting';
 
 export class ChatWidget {
   private client: AutomatosClient;
@@ -34,13 +42,7 @@ export class ChatWidget {
     this.client = new AutomatosClient(config);
     this.mount();
     this.wireEvents();
-
-    // Pre-authenticate for server keys
-    if (!config.apiKey.startsWith('ak_pub_')) {
-      this.client.authenticate().catch(() => {
-        // Will retry on first message
-      });
-    }
+    this.start();
   }
 
   // ── Public API ──
@@ -115,14 +117,21 @@ export class ChatWidget {
   // ── Private ──
 
   private mount(): void {
-    const css = [baseCSS, componentCSS, animationCSS].join('\n');
+    const css = [baseCSS, componentCSS, animationCSS, aiNoticeCSS].join('\n');
     const { host, shadow, container } = createShadowHost(this.config, css);
     this.host = host;
     this.shadow = shadow;
 
     this.fab = new FAB({ onClick: () => this.toggle() });
-    this.panel = new ChatPanel({ onClose: () => this.close(), title: this.config.title });
+    // PRD-264 EUAI-02b: labelled from the first paint with the English
+    // default; the server's notice replaces it when the config arrives.
+    this.panel = new ChatPanel({
+      onClose: () => this.close(),
+      title: this.config.title,
+      disclosure: resolveAIDisclosure(DEFAULT_AI_DISCLOSURE),
+    });
     this.messageList = new MessageList(this.panel.messagesContainer);
+    this.renderGreeting();
 
     this.inputArea = new InputArea({
       onSend: (text) => this.handleSend(text),
@@ -137,8 +146,52 @@ export class ChatWidget {
     this.client.events.emit('widget:ready', undefined as never);
   }
 
+  /** The deployer's greeting, if set, as the first turn after the AI notice. */
+  private renderGreeting(): void {
+    const greeting = this.config.greeting?.trim();
+    if (!greeting) return;
+    this.messageList.addMessage({
+      id: GREETING_MESSAGE_ID,
+      role: 'assistant',
+      content: greeting,
+      timestamp: Date.now(),
+      status: 'complete',
+    });
+  }
+
+  /**
+   * Pre-authenticate server keys, then load the server's AI notice
+   * (PRD-264 EUAI-02b). Run in that order so a server key exchanges for a
+   * session once, not twice.
+   */
+  private start(): void {
+    const ready = this.config.apiKey.startsWith(PUBLIC_KEY_PREFIX)
+      ? Promise.resolve()
+      : this.client.authenticate().catch((err: unknown) => {
+          console.warn('[automatos] pre-authentication failed; retrying on first message', err);
+        });
+    void ready.then(() => this.loadDisclosure());
+  }
+
+  /** Show the server's AI notice; an old server without one keeps the English default. */
+  private async loadDisclosure(): Promise<void> {
+    try {
+      const payload = await this.client.getWidgetConfig();
+      this.panel.setDisclosure(resolveAIDisclosure(payload.ai_disclosure));
+    } catch (err) {
+      console.warn('[automatos] widget config unavailable; showing the default AI notice', err);
+    }
+  }
+
   private wireEvents(): void {
     const { events } = this.client;
+
+    // PRD-264 EUAI-02b: the stream's first event is the server's notice.
+    this.unsubs.push(
+      events.on('chat:ai-disclosure', (disclosure) => {
+        this.panel.setDisclosure(disclosure);
+      }),
+    );
 
     this.unsubs.push(
       events.on('chat:chunk', ({ messageId, fullContent }) => {

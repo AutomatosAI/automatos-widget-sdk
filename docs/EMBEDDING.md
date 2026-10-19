@@ -401,8 +401,8 @@ extra headers.
 | `widget`             | ✅   | ✅   | `'chat'` or `'blog'`.                                  |
 | `position`           | ✅   |      | `'bottom-right'` (default) or `'bottom-left'`.         |
 | `theme`              | ✅   | ✅   | `'light'` or `'dark'`.                                 |
-| `title`              | ✅   |      | Header text in the chat panel.                         |
-| `greeting`           | ✅   |      | Opening message.                                       |
+| `title`              | ✅   |      | Header text in the chat panel. The AI badge always shows beside it (§3b). |
+| `greeting`           | ✅   |      | Opening message, shown after the AI notice (§3b).      |
 | `agentId`            | ✅   |      | Override the workspace's default agent.                |
 | `containerSelector`  |      | ✅   | CSS selector to mount the blog widget into.            |
 | `blogConfig.layout`  |      | ✅   | `'grid' \| 'list' \| 'featured' \| 'minimal'`.         |
@@ -527,6 +527,31 @@ curl -X PATCH https://api.automatos.app/api/workspaces/<workspace-id>/settings \
     }
   }'
 ```
+
+---
+
+## 3b. The AI notice (EU AI Act Art. 50, PRD-264, v0.5.0+)
+
+The chat widget always tells visitors they are talking to an AI, before they
+type. No `init()` option removes it.
+
+- **Header badge:** `AI` (or the locale's term: `IA` in Portuguese, Spanish,
+  French and Italian, `KI` in German) beside the title. `title` changes the
+  title text, never the badge.
+- **Opening turn:** the notice line, first in the conversation, then your
+  `greeting` if you set one. The default is "You are chatting with an AI
+  assistant for {site}.", using your Site's public display name. You can
+  reword the line in the workspace's widget settings, but it must still
+  contain the locale's term.
+- **Popups:** the proactive and cart-idle popups show the badge and "AI
+  assistant" in the locale's form above their text.
+- **Screen readers:** the launcher reads "Open AI assistant chat" and the
+  typing indicator "AI assistant is typing".
+
+The server sends the notice in `GET /api/widgets/config` (`ai_disclosure`)
+and as the first event of every chat stream. If a server sends none, the
+widget shows the English default. The badge and notice use fixed colours, so
+`themeOverrides` can't hide them.
 
 ---
 

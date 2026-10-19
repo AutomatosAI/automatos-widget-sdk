@@ -15,6 +15,15 @@ export {
   type CallbackSubmitResult,
 } from './callback-submit';
 export { AutomatosError, AuthError, NetworkError, StreamError } from './errors';
+// PRD-264 EUAI-02b: the AI notice every widget surface renders.
+export {
+  DEFAULT_AI_DISCLOSURE,
+  AI_ASSISTANT_LABEL_BY_LANGUAGE,
+  AI_ARIA_LABELS,
+  aiAssistantLabel,
+  languageOf,
+  resolveAIDisclosure,
+} from './ai-disclosure';
 export type {
   AutomatosConfig,
   BlogConfig,
@@ -50,4 +59,7 @@ export type {
   WidgetCallbackConfig,
   WidgetConfigPayload,
   ProactiveOverride,
+  // PRD-264 EUAI-02a/02b: the AI notice contract
+  AIDisclosure,
+  SSEAIDisclosureEvent,
 } from './types';

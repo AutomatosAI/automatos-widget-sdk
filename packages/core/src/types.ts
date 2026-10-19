@@ -200,11 +200,32 @@ export interface WidgetCallbackConfig {
   form_heading?: string;
 }
 
+// ── PRD-264 EUAI-02a/02b: EU AI Act Art. 50(1) AI notice ──
+
+/**
+ * The AI notice the server builds for a widget (PRD-264 EUAI-02a). Sent in
+ * the public widget config and as the first event of every chat stream.
+ *
+ * `badge` is the fixed locale term (`AI`, `IA`, `KI`) that no deployer
+ * setting changes (D17); `line` is the first-turn sentence a deployer may
+ * reword; `locale` is the language whose badge term the notice uses.
+ */
+export interface AIDisclosure {
+  badge: string;
+  line: string;
+  locale: string;
+}
+
 /** Public widget config returned by GET /api/widgets/config */
 export interface WidgetConfigPayload {
   widget_proactive?: WidgetProactiveConfig;
   cart_idle?: WidgetCartIdleConfig;
   callback?: WidgetCallbackConfig;
+  /**
+   * PRD-264 EUAI-02a: always sent by current servers. Older servers omit it,
+   * and the SDK then uses the English default (never an unlabelled widget).
+   */
+  ai_disclosure?: AIDisclosure;
 }
 
 export interface ThemeConfig {
@@ -263,7 +284,8 @@ export type SSEEventType =
   | 'tool-data'
   | 'done'
   | 'error'
-  | 'open-callback-form';
+  | 'open-callback-form'
+  | 'ai_disclosure';
 
 export interface SSEEvent {
   event: SSEEventType;
@@ -274,6 +296,20 @@ export interface SSEMessageEvent {
   event: 'message';
   data: {
     content: string;
+    conversation_id?: string;
+    /** PRD-264 EUAI-02a: every assistant message event carries `true`. */
+    ai_generated?: boolean;
+  };
+}
+
+/**
+ * PRD-264 EUAI-02a: the first event of every `POST /api/widgets/chat`
+ * stream, sent before any token.
+ */
+export interface SSEAIDisclosureEvent {
+  event: 'ai_disclosure';
+  data: AIDisclosure & {
+    type: 'ai_disclosure';
     conversation_id?: string;
   };
 }
@@ -382,6 +418,8 @@ export interface WidgetEvents {
   // PRD-008-A.2: orchestrator-detected callback intent. Loader listens and
   // auto-opens the phone-capture form when this fires.
   'chat:open-callback-form': { conversationId: string; productContext?: string | null };
+  // PRD-264 EUAI-02b: the server's AI notice for this stream (first event).
+  'chat:ai-disclosure': AIDisclosure;
   'widget:open': void;
   'widget:close': void;
   'widget:ready': void;

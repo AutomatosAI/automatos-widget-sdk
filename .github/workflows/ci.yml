@@ -35,5 +35,5 @@ jobs:
       - name: Type-check
         run: pnpm -r typecheck
 
-      - name: Unit tests (core + loader)
-        run: pnpm -F @automatos/core -F @automatos/loader test
+      - name: Unit tests (core + chat-widget + loader)
+        run: pnpm -F @automatos/core -F @automatos/chat-widget -F @automatos/loader test
