@@ -555,6 +555,24 @@ widget shows the English default. The badge and notice use fixed colours, so
 
 ---
 
+## 3c. AI-generated blog posts (EU AI Act Art. 50(4), PRD-264, v0.5.0+)
+
+When the blog API flags a post `ai_generated: true` (an agent wrote it and no
+person has marked it reviewed), the blog widget:
+
+- shows an **"AI-generated"** label by the byline, on every card layout and on
+  the post page, in fixed colours `themeOverrides` can't hide;
+- while the post is open, adds one schema.org `BlogPosting` JSON-LD block to
+  the host page's `<head>` with `digitalSourceType` set to the IPTC term
+  `http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`.
+  Every open post gets the JSON-LD block; only flagged posts carry that field.
+  The block is removed when the reader goes back or the widget is destroyed.
+
+Posts without the flag (human-written, reviewed, or from an older server)
+show no label.
+
+---
+
 ## 4. How it works (short version)
 
 * The bundle is a Shadow DOM widget — no styles leak in or out, ~9 KB

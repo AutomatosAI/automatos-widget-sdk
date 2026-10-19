@@ -2,7 +2,6 @@ import {
   AutomatosClient,
   type AutomatosConfig,
   type BlogLayout,
-  type BlogPost,
   type BlogPostListResponse,
 } from '@automatos/core';
 import { createBlogShadowHost } from './dom/shadow-host';
@@ -11,6 +10,7 @@ import { PostDetail } from './components/post-detail';
 import { baseCSS } from './styles/base';
 import { componentCSS } from './styles/components';
 import { animationCSS } from './styles/animations';
+import { aiLabelCSS } from './styles/ai-label';
 
 export class BlogWidget {
   private client: AutomatosClient;
@@ -21,6 +21,8 @@ export class BlogWidget {
   private detail!: PostDetail;
 
   private cache = new Map<number, BlogPostListResponse>();
+  /** The slug of the post being shown or loaded; null on the listing. */
+  private openSlug: string | null = null;
 
   constructor(config: AutomatosConfig) {
     this.config = config;
@@ -37,12 +39,14 @@ export class BlogWidget {
   }
 
   destroy(): void {
+    this.openSlug = null;
+    this.detail.leave();
     this.client.destroy();
     this.host.remove();
   }
 
   private mount(): void {
-    const css = [baseCSS, componentCSS, animationCSS].join('\n');
+    const css = [baseCSS, componentCSS, animationCSS, aiLabelCSS].join('\n');
     const { host, container } = createBlogShadowHost(this.config, css);
     this.host = host;
     this.container = container;
@@ -87,32 +91,27 @@ export class BlogWidget {
   }
 
   private async navigateToPost(slug: string): Promise<void> {
+    this.openSlug = slug;
     this.container.replaceChildren(this.detail.el);
     this.detail.showLoading();
 
     try {
       const post = await this.client.getPost(slug);
+      // The reader went back (or opened another post) while this one loaded:
+      // don't render it, or its JSON-LD would land on the listing page.
+      if (this.openSlug !== slug) return;
       this.detail.showPost(post);
     } catch (err) {
+      if (this.openSlug !== slug) return;
       const message = err instanceof Error ? err.message : 'Failed to load post';
       // Show error inline in detail view, with back button still available
-      this.detail.showPost({
-        id: '',
-        title: 'Error loading post',
-        slug,
-        excerpt: message,
-        cover_image_url: null,
-        tags: [],
-        category: null,
-        author_name: '',
-        published_at: new Date().toISOString(),
-        reading_time_minutes: 0,
-        content: `<p>${message}</p>`,
-      } satisfies BlogPost);
+      this.detail.showError(message);
     }
   }
 
   private navigateToListing(): void {
+    this.openSlug = null;
+    this.detail.leave();
     this.container.replaceChildren(this.listing.el);
   }
 }

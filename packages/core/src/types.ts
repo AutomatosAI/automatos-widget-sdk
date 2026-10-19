@@ -375,6 +375,13 @@ export interface BlogPost {
   reading_time_minutes: number;
   /** Full post content (HTML). Only present in detail view. */
   content?: string;
+  /**
+   * PRD-264 EUAI-08b/08c (EU AI Act Art. 50(4)): `true` when an agent wrote
+   * the post and no person has marked it reviewed. The widget then shows
+   * "AI-generated" by the byline and marks the post's JSON-LD. Absent or
+   * `false` (older servers, human or reviewed posts): no label.
+   */
+  ai_generated?: boolean;
 }
 
 export interface BlogPostListResponse {

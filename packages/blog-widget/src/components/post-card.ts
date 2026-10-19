@@ -1,5 +1,6 @@
 import type { BlogPost, BlogLayout } from '@automatos/core';
 import { h } from '../dom/create-element';
+import { aiGeneratedAttrs, aiGeneratedLabelItems } from './ai-label';
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -13,6 +14,7 @@ function formatDate(dateStr: string): string {
 function buildMeta(post: BlogPost): HTMLElement {
   return h('div', { class: 'aw-post-card-meta' }, [
     h('span', null, [post.author_name]),
+    ...aiGeneratedLabelItems(post),
     h('span', null, [formatDate(post.published_at)]),
     h('span', { class: 'aw-reading-time' }, [`${post.reading_time_minutes} min read`]),
   ]);
@@ -48,7 +50,7 @@ function buildGridCard(post: BlogPost): HTMLElement {
   ];
   if (tags) children.push(tags);
 
-  return h('article', { class: 'aw-post-card' }, [
+  return h('article', { class: 'aw-post-card', ...aiGeneratedAttrs(post) }, [
     buildCover(post),
     h('div', { class: 'aw-post-card-body' }, children),
   ]);
@@ -63,14 +65,14 @@ function buildListCard(post: BlogPost): HTMLElement {
   ];
   if (tags) children.push(tags);
 
-  return h('article', { class: 'aw-post-card aw-post-card--list' }, [
+  return h('article', { class: 'aw-post-card aw-post-card--list', ...aiGeneratedAttrs(post) }, [
     buildCover(post),
     h('div', { class: 'aw-post-card-body' }, children),
   ]);
 }
 
 function buildFeaturedCard(post: BlogPost): HTMLElement {
-  return h('article', { class: 'aw-post-card aw-post-card--featured' }, [
+  return h('article', { class: 'aw-post-card aw-post-card--featured', ...aiGeneratedAttrs(post) }, [
     buildCover(post),
     h('div', { class: 'aw-post-card-overlay' }, [
       h('h3', { class: 'aw-post-card-title' }, [post.title]),
@@ -83,10 +85,12 @@ function buildFeaturedCard(post: BlogPost): HTMLElement {
 }
 
 function buildMinimalCard(post: BlogPost): HTMLElement {
-  return h('article', { class: 'aw-post-card aw-post-card--minimal' }, [
+  // The minimal card has no author name, so the label leads its meta line.
+  return h('article', { class: 'aw-post-card aw-post-card--minimal', ...aiGeneratedAttrs(post) }, [
     h('div', { class: 'aw-post-card-body' }, [
       h('h3', { class: 'aw-post-card-title' }, [post.title]),
       h('div', { class: 'aw-post-card-meta' }, [
+        ...aiGeneratedLabelItems(post),
         h('span', null, [formatDate(post.published_at)]),
         h('span', { class: 'aw-reading-time' }, [`${post.reading_time_minutes} min`]),
       ]),
