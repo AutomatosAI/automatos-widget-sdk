@@ -89,3 +89,57 @@ describe('ProactivePopup', () => {
     expect(host.getAttribute('data-style')).toBe('slide_in_card');
   });
 });
+
+/**
+ * PRD-264 EUAI-02b: the proactive and cart-idle popups (both this class)
+ * show the AI badge and "AI assistant" in the notice's language, and an old
+ * server without `ai_disclosure` still gets the English label.
+ */
+describe('ProactivePopup AI label (PRD-264 EUAI-02b)', () => {
+  function popupShadow(): ShadowRoot {
+    const host = document.body.querySelector('aw-proactive-popup') as HTMLElement;
+    return host.shadowRoot!;
+  }
+
+  it('carries the English badge and words without a server notice', () => {
+    new ProactivePopup({ text: 'Need a hand?' }).mount();
+    const shadow = popupShadow();
+
+    expect(shadow.querySelector('[data-ai-badge]')!.textContent).toBe('AI');
+    expect(shadow.querySelector('.ai-label-text')!.textContent).toBe('AI assistant');
+  });
+
+  it("carries the server's badge and the locale's form of AI assistant", () => {
+    new ProactivePopup({
+      text: 'Precisa de ajuda?',
+      disclosure: { badge: 'IA', line: 'Está a conversar com um assistente de IA.', locale: 'pt' },
+    }).mount();
+    const shadow = popupShadow();
+
+    expect(shadow.querySelector('[data-ai-badge]')!.textContent).toBe('IA');
+    expect(shadow.querySelector('.ai-label-text')!.textContent).toBe('Assistente de IA');
+    expect(shadow.querySelector('[data-ai-label]')!.getAttribute('lang')).toBe('pt');
+  });
+
+  it('keeps the label above the text when the opener swaps the text in', () => {
+    const p = new ProactivePopup({ text: 'canned' });
+    p.mount();
+    p.updateText('agent-generated opener');
+    const shadow = popupShadow();
+
+    expect(shadow.querySelector('.text')!.textContent).toBe('agent-generated opener');
+    expect(shadow.querySelector('[data-ai-badge]')!.textContent).toBe('AI');
+    expect(shadow.querySelector('.ai-label-text')!.textContent).toBe('AI assistant');
+  });
+
+  it('keeps the label under an accent colour override, with literal colours', () => {
+    new ProactivePopup({ text: 'x', primaryColor: '#ffffff' }).mount();
+    const shadow = popupShadow();
+    const css = shadow.querySelector('style')!.textContent ?? '';
+    const badgeRule = css.slice(css.indexOf('.ai-badge {'), css.indexOf('}', css.indexOf('.ai-badge {')));
+
+    expect(shadow.querySelector('[data-ai-badge]')!.textContent).toBe('AI');
+    expect(badgeRule).toContain('background: #111827');
+    expect(badgeRule).not.toMatch(/var\(/);
+  });
+});

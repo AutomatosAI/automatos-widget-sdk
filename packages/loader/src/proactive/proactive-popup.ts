@@ -3,12 +3,24 @@
  *
  * Shadow DOM popup component. Self-contained: own styles, no theme leakage,
  * dismissable. Renders in `corner_bubble` (default) or `slide_in_card` style.
+ *
+ * PRD-264 EUAI-02b: every popup (proactive and cart-idle share this class)
+ * carries the AI badge and the words "AI assistant" in the notice's
+ * language above its text. Without a server notice it uses the English
+ * default, so a popup is never unlabelled.
  */
 
-import type { ProactivePopupStyle } from '@automatos/core';
+import {
+  aiAssistantLabel,
+  resolveAIDisclosure,
+  type AIDisclosure,
+  type ProactivePopupStyle,
+} from '@automatos/core';
 
 export interface ProactivePopupOptions {
   text: string;
+  /** PRD-264 EUAI-02b: the server's AI notice (`config.ai_disclosure`). */
+  disclosure?: AIDisclosure;
   style?: ProactivePopupStyle;
   position?: 'bottom-right' | 'bottom-left';
   primaryColor?: string;
@@ -47,7 +59,34 @@ const STYLES_BASE = `
     cursor: pointer;
     animation: aw-pop-in 220ms ease-out;
   }
+  .body { flex: 1; min-width: 0; }
   .text { flex: 1; }
+  /* PRD-264 EUAI-02b: literal colours, so no accent override hides the label. */
+  .ai-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+  }
+  .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: #111827;
+    color: #ffffff;
+    box-shadow: 0 0 0 1px #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    letter-spacing: 0.04em;
+  }
   .close {
     background: none;
     border: none;
@@ -109,16 +148,14 @@ export class ProactivePopup {
     const container = this.doc.createElement('div');
     container.className = 'container';
 
-    const text = this.doc.createElement('div');
-    text.className = 'text';
-    text.textContent = this.opts.text;
+    const body = this.createBody();
 
     const close = this.doc.createElement('button');
     close.className = 'close';
     close.setAttribute('aria-label', 'Dismiss');
     close.textContent = '×'; // ×
 
-    container.appendChild(text);
+    container.appendChild(body);
     container.appendChild(close);
 
     container.addEventListener('click', (e) => {
@@ -136,6 +173,43 @@ export class ProactivePopup {
     shadow.appendChild(container);
     parent.appendChild(this.host);
     this.mounted = true;
+  }
+
+  /** The AI label above the popup text (PRD-264 EUAI-02b). */
+  private createBody(): HTMLElement {
+    const body = this.doc.createElement('div');
+    body.className = 'body';
+
+    const text = this.doc.createElement('div');
+    text.className = 'text';
+    text.textContent = this.opts.text;
+
+    body.appendChild(this.createAILabel());
+    body.appendChild(text);
+    return body;
+  }
+
+  /** The badge plus "AI assistant" in the notice's language (PRD-264 EUAI-02b). */
+  private createAILabel(): HTMLElement {
+    const disclosure = resolveAIDisclosure(this.opts.disclosure);
+    const label = this.doc.createElement('div');
+    label.className = 'ai-label';
+    label.setAttribute('lang', disclosure.locale);
+    label.setAttribute('data-ai-label', 'true');
+
+    const badge = this.doc.createElement('span');
+    badge.className = 'ai-badge';
+    badge.setAttribute('data-ai-badge', 'true');
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = disclosure.badge;
+
+    const words = this.doc.createElement('span');
+    words.className = 'ai-label-text';
+    words.textContent = aiAssistantLabel(disclosure);
+
+    label.appendChild(badge);
+    label.appendChild(words);
+    return label;
   }
 
   /** Replace the popup text in place (used when LLM opener arrives after canned). */

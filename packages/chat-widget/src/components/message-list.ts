@@ -1,4 +1,4 @@
-import type { WidgetMessage } from '@automatos/core';
+import { AI_ARIA_LABELS, type WidgetMessage } from '@automatos/core';
 import { createMessageBubble, updateBubbleContent, finalizeBubble } from './message-bubble';
 
 export class MessageList {
@@ -77,7 +77,7 @@ export class MessageList {
   showTyping(): HTMLElement {
     const typing = document.createElement('div');
     typing.className = 'aw-typing';
-    typing.setAttribute('aria-label', 'Assistant is typing');
+    typing.setAttribute('aria-label', AI_ARIA_LABELS.typing);
     for (let i = 0; i < 3; i++) {
       const dot = document.createElement('span');
       dot.className = 'aw-typing-dot';

@@ -1,3 +1,4 @@
+import { AI_ARIA_LABELS } from '@automatos/core';
 import { h } from '../dom/create-element';
 import { icons } from '../dom/icons';
 
@@ -15,7 +16,7 @@ export class FAB {
 
     this.el = h('button', {
       class: 'aw-fab',
-      'aria-label': 'Open chat',
+      'aria-label': AI_ARIA_LABELS.openChat,
       'data-open': 'false',
       onClick: () => opts.onClick(),
     }, [
@@ -28,7 +29,10 @@ export class FAB {
   setOpen(open: boolean): void {
     this.isOpen = open;
     this.el.setAttribute('data-open', String(open));
-    this.el.setAttribute('aria-label', open ? 'Close chat' : 'Open chat');
+    this.el.setAttribute(
+      'aria-label',
+      open ? AI_ARIA_LABELS.closeChat : AI_ARIA_LABELS.openChat,
+    );
     if (open) this.hideBadge();
   }
 

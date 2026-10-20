@@ -104,6 +104,8 @@ export async function bootstrapProactive(
     onTrigger: async (reason) => {
       const popup = new ProactivePopup({
         text: proactive.canned_fallback,
+        // PRD-264 EUAI-02b: the popup carries the server's AI badge.
+        disclosure: payload?.ai_disclosure,
         style: proactive.popup_style,
         position: config.position ?? 'bottom-right',
         primaryColor: config.themeOverrides?.['--aw-primary'],

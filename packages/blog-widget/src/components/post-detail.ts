@@ -1,5 +1,7 @@
 import type { BlogPost } from '@automatos/core';
 import { h } from '../dom/create-element';
+import { mountPostJsonLd } from '../seo/post-json-ld';
+import { aiGeneratedAttrs, aiGeneratedLabelItems } from './ai-label';
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -119,9 +121,25 @@ function renderSanitizedContent(container: HTMLElement, htmlContent: string): vo
   }
 }
 
+/** The byline: author, the "AI-generated" label when flagged, date, reading time, category. */
+function buildDetailMeta(post: BlogPost): HTMLElement {
+  const metaItems: (Node | string)[] = [
+    h('span', null, [post.author_name]),
+    ...aiGeneratedLabelItems(post),
+    h('span', null, [formatDate(post.published_at)]),
+    h('span', { class: 'aw-reading-time' }, [`${post.reading_time_minutes} min read`]),
+  ];
+  if (post.category) {
+    metaItems.push(h('span', { class: 'aw-category-badge' }, [post.category]));
+  }
+  return h('div', { class: 'aw-post-detail-meta' }, metaItems);
+}
+
 export class PostDetail {
   readonly el: HTMLElement;
   onBack: (() => void) | null = null;
+  /** The open post's JSON-LD in the host page's head; null when none is open. */
+  private jsonLd: HTMLScriptElement | null = null;
 
   constructor() {
     this.el = h('div');
@@ -129,19 +147,15 @@ export class PostDetail {
   }
 
   showLoading(): void {
-    clearElement(this.el);
+    this.reset();
     this.el.appendChild(buildSkeleton());
   }
 
+  /** Renders the post and puts its JSON-LD in the host page's head. */
   showPost(post: BlogPost): void {
-    clearElement(this.el);
+    this.reset();
 
-    const backBtn = h('button', { class: 'aw-post-detail-back' }, [
-      '\u2190 Back to posts',
-    ]);
-    backBtn.addEventListener('click', () => this.onBack?.());
-
-    const children: (Node | string)[] = [backBtn];
+    const children: (Node | string)[] = [this.buildBackButton()];
 
     if (post.cover_image_url) {
       children.push(
@@ -154,16 +168,7 @@ export class PostDetail {
     }
 
     children.push(h('h1', { class: 'aw-post-detail-title' }, [post.title]));
-
-    const metaItems: (Node | string)[] = [
-      h('span', null, [post.author_name]),
-      h('span', null, [formatDate(post.published_at)]),
-      h('span', { class: 'aw-reading-time' }, [`${post.reading_time_minutes} min read`]),
-    ];
-    if (post.category) {
-      metaItems.push(h('span', { class: 'aw-category-badge' }, [post.category]));
-    }
-    children.push(h('div', { class: 'aw-post-detail-meta' }, metaItems));
+    children.push(buildDetailMeta(post));
 
     if (post.tags.length > 0) {
       children.push(
@@ -181,7 +186,43 @@ export class PostDetail {
     renderSanitizedContent(article, post.content ?? '');
     children.push(article);
 
-    const wrapper = h('div', { class: 'aw-post-detail aw-blog-view-enter' }, children);
+    const wrapper = h(
+      'div',
+      { class: 'aw-post-detail aw-blog-view-enter', ...aiGeneratedAttrs(post) },
+      children,
+    );
     this.el.appendChild(wrapper);
+    this.jsonLd = mountPostJsonLd(post);
+  }
+
+  /** A post that failed to load: the message and the back button, no JSON-LD. */
+  showError(message: string): void {
+    this.reset();
+    this.el.appendChild(
+      h('div', { class: 'aw-post-detail aw-blog-view-enter' }, [
+        this.buildBackButton(),
+        h('h1', { class: 'aw-post-detail-title' }, ['Error loading post']),
+        h('p', { class: 'aw-blog-error' }, [message]),
+      ]),
+    );
+  }
+
+  /** The reader left the post page: drop its JSON-LD from the host page. */
+  leave(): void {
+    this.jsonLd?.remove();
+    this.jsonLd = null;
+  }
+
+  private reset(): void {
+    this.leave();
+    clearElement(this.el);
+  }
+
+  private buildBackButton(): HTMLElement {
+    const backBtn = h('button', { class: 'aw-post-detail-back' }, [
+      '\u2190 Back to posts',
+    ]);
+    backBtn.addEventListener('click', () => this.onBack?.());
+    return backBtn;
   }
 }
